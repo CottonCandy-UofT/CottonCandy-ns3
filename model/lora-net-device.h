@@ -25,6 +25,7 @@
 #include "ns3/lora-channel.h"
 #include "ns3/lora-phy.h"
 #include "ns3/lorawan-mac.h"
+#include "ns3/cottoncandy-mac.h"
 
 namespace ns3 {
 namespace lorawan {
@@ -57,6 +58,13 @@ public:
    */
   void SetMac (Ptr<LorawanMac> mac);
 
+    /**
+   * Set which LorawanMac instance is linked to this device.
+   *
+   * \param mac the mac layer to use.
+   */
+  void SetCMac (Ptr<CottoncandyMac> cmac);
+
   /**
    * Set which LoraPhy instance is linked to this device.
    *
@@ -70,6 +78,14 @@ public:
    * \return the mac we are currently using.
    */
   Ptr<LorawanMac> GetMac (void) const;
+
+
+    /**
+   * Get the Cottoncandy instance that is linked to this NetDevice.
+   *
+   * \return the mac we are currently using.
+   */
+  Ptr<CottoncandyMac> GetCMac (void) const;
 
   /**
    * Get the LoraPhy instance that is linked to this NetDevice.
@@ -153,8 +169,9 @@ private:
   Ptr<Node> m_node; //!< The Node this NetDevice is connected to.
   Ptr<LoraPhy> m_phy; //!< The LoraPhy this NetDevice is connected to.
   Ptr<LorawanMac> m_mac; //!< The LorawanMac this NetDevice is connected to.
+  Ptr<CottoncandyMac> m_cmac; //Cottoncandy mac layer
   bool m_configComplete; //!< Whether the configuration was already completed.
-
+  
   /**
    * Upper layer callback used for notification of new data packet arrivals.
    */

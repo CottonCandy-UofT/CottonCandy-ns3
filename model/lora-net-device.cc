@@ -59,6 +59,7 @@ LoraNetDevice::LoraNetDevice () :
   m_node (0),
   m_phy (0),
   m_mac (0),
+  m_cmac(0),
   m_configComplete (0)
 {
   NS_LOG_FUNCTION_NOARGS ();
@@ -75,10 +76,21 @@ LoraNetDevice::SetMac (Ptr<LorawanMac> mac)
   m_mac = mac;
 }
 
+void LoraNetDevice::SetCMac (Ptr<CottoncandyMac> cmac)
+{
+  m_cmac = cmac;
+}
+
 Ptr<LorawanMac>
 LoraNetDevice::GetMac (void) const
 {
   return m_mac;
+}
+
+Ptr<CottoncandyMac>
+LoraNetDevice::GetCMac (void) const
+{
+  return m_cmac;
 }
 
 void
@@ -103,8 +115,18 @@ LoraNetDevice::CompleteConfig (void)
     {
       return;
     }
+    
+  if (m_cmac == 0 || m_phy == 0 || m_node == 0 || m_configComplete)
+    {
+      return;
+    }
 
-  m_mac->SetPhy (m_phy);
+  if (m_mac!=0){
+    m_mac->SetPhy (m_phy);
+  }else if (m_cmac!=0){
+    m_cmac->SetPhy (m_phy);
+  }
+
   m_configComplete = true;
 }
 
@@ -114,8 +136,13 @@ LoraNetDevice::Send (Ptr<Packet> packet)
   NS_LOG_FUNCTION (this << packet);
 
   // Send the packet to the MAC layer, if it exists
-  NS_ASSERT (m_mac != 0);
-  m_mac->Send (packet);
+  NS_ASSERT (m_mac != 0 || m_cmac != 0);
+
+  if(m_mac!=0){
+    m_mac->Send (packet);
+  }else{
+    m_cmac->Send(packet);
+  }
 }
 
 void

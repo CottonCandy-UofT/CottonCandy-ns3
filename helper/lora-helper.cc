@@ -37,6 +37,114 @@ NS_LOG_COMPONENT_DEFINE ("LoraHelper");
   LoraHelper::~LoraHelper ()
   {
   }
+  
+  NetDeviceContainer
+  LoraHelper::Install ( const LoraPhyHelper &phyHelper,
+                        const CottoncandyMacHelper &macHelper,
+                        NodeContainer c) const
+  {
+    NS_LOG_FUNCTION_NOARGS ();
+
+    NetDeviceContainer devices;
+
+    // Go over the various nodes in which to install the NetDevice
+    for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
+      {
+        Ptr<Node> node = *i;
+
+        // Create the LoraNetDevice
+        Ptr<LoraNetDevice> device = CreateObject<LoraNetDevice> ();
+
+        // Create the PHY
+        Ptr<LoraPhy> phy = phyHelper.Create (node, device);
+        NS_ASSERT (phy != 0);
+        device->SetPhy (phy);
+        NS_LOG_DEBUG ("Done creating the PHY");
+
+        // Connect Trace Sources if necessary
+        if (m_packetTracker)
+          {
+            if (phyHelper.GetDeviceType () ==
+                TypeId::LookupByName ("ns3::SimpleEndDeviceLoraPhy"))
+              {
+                phy->TraceConnectWithoutContext ("StartSending",
+                                                 MakeCallback
+                                                 (&LoraPacketTracker::TransmissionCallback,
+                                                  m_packetTracker));
+              }
+            else if (phyHelper.GetDeviceType () ==
+                     TypeId::LookupByName ("ns3::SimpleGatewayLoraPhy"))
+            {
+              phy->TraceConnectWithoutContext ("StartSending",
+                                               MakeCallback
+                                               (&LoraPacketTracker::TransmissionCallback,
+                                                m_packetTracker));
+              phy->TraceConnectWithoutContext ("ReceivedPacket",
+                                               MakeCallback
+                                                 (&LoraPacketTracker::PacketReceptionCallback,
+                                                 m_packetTracker));
+              phy->TraceConnectWithoutContext ("LostPacketBecauseInterference",
+                                               MakeCallback
+                                                 (&LoraPacketTracker::InterferenceCallback,
+                                                 m_packetTracker));
+              phy->TraceConnectWithoutContext ("LostPacketBecauseNoMoreReceivers",
+                                               MakeCallback
+                                                 (&LoraPacketTracker::NoMoreReceiversCallback,
+                                                 m_packetTracker));
+              phy->TraceConnectWithoutContext ("LostPacketBecauseUnderSensitivity",
+                                               MakeCallback
+                                                 (&LoraPacketTracker::UnderSensitivityCallback,
+                                                 m_packetTracker));
+              phy->TraceConnectWithoutContext ("NoReceptionBecauseTransmitting",
+                                               MakeCallback
+                                                 (&LoraPacketTracker::LostBecauseTxCallback,
+                                                 m_packetTracker));
+            }
+        }
+
+      // Create the MAC
+      Ptr<CottoncandyMac> mac = macHelper.Create (node, device);
+      NS_ASSERT (mac != 0);
+      mac->SetPhy (phy);
+      NS_LOG_DEBUG ("Done creating the MAC");
+      device->SetCMac (mac);
+
+      if (m_packetTracker)
+        {
+          if (phyHelper.GetDeviceType () ==
+              TypeId::LookupByName ("ns3::SimpleEndDeviceLoraPhy"))
+            {
+              mac->TraceConnectWithoutContext ("SentNewPacket",
+                                               MakeCallback
+                                                 (&LoraPacketTracker::MacTransmissionCallback,
+                                                 m_packetTracker));
+
+              mac->TraceConnectWithoutContext ("RequiredTransmissions",
+                                               MakeCallback
+                                                 (&LoraPacketTracker::RequiredTransmissionsCallback,
+                                                 m_packetTracker));
+            }
+          else if (phyHelper.GetDeviceType () ==
+                   TypeId::LookupByName ("ns3::SimpleGatewayLoraPhy"))
+            {
+              mac->TraceConnectWithoutContext ("SentNewPacket",
+                                               MakeCallback
+                                               (&LoraPacketTracker::MacTransmissionCallback,
+                                                m_packetTracker));
+
+              mac->TraceConnectWithoutContext ("ReceivedPacket",
+                                               MakeCallback
+                                               (&LoraPacketTracker::MacGwReceptionCallback,
+                                                m_packetTracker));
+            }
+        }
+
+      node->AddDevice (device);
+      devices.Add (device);
+      NS_LOG_DEBUG ("node=" << node << ", mob=" << node->GetObject<MobilityModel> ()->GetPosition ());
+    }
+  return devices;
+}
 
   NetDeviceContainer
   LoraHelper::Install ( const LoraPhyHelper &phyHelper,
@@ -65,7 +173,7 @@ NS_LOG_COMPONENT_DEFINE ("LoraHelper");
         if (m_packetTracker)
           {
             if (phyHelper.GetDeviceType () ==
-                TypeId::LookupByName ("ns3::SimpleEndDeviceLoraPhy"))
+                TypeId::LookupByName ("ns3::LoraPhy"))
               {
                 phy->TraceConnectWithoutContext ("StartSending",
                                                  MakeCallback
@@ -153,6 +261,15 @@ LoraHelper::Install ( const LoraPhyHelper &phy,
 {
   return Install (phy, mac, NodeContainer (node));
 }
+
+NetDeviceContainer
+LoraHelper::Install ( const LoraPhyHelper &phy,
+                      const CottoncandyMacHelper &mac,
+                      Ptr<Node> node) const
+{
+  return Install (phy, mac, NodeContainer (node));
+}
+
 
 void
 LoraHelper::EnablePacketTracking ()
