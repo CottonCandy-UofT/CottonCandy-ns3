@@ -13,6 +13,12 @@ def build(bld):
                                                'buildings'])
     module.source = [
         'model/lora-net-device.cc',
+        'model/cottoncandy-mac-header.cc',
+        'model/cottoncandy-joinack-header.cc',
+        'model/cottoncandy-address.cc',
+        'model/cottoncandy-mac.cc',
+        'model/cottoncandy-simple-app.cc',
+        'model/cottoncandy-address-generator.cc',
         'model/lorawan-mac.cc',
         'model/lora-phy.cc',
         'model/building-penetration-loss.cc',
@@ -54,6 +60,8 @@ def build(bld):
         'helper/lora-helper.cc',
         'helper/lora-phy-helper.cc',
         'helper/lorawan-mac-helper.cc',
+        'helper/cottoncandy-mac-helper.cc',
+        'helper/cottoncandy-simple-app-helper.cc',
         'helper/periodic-sender-helper.cc',
         'helper/one-shot-sender-helper.cc',
         'helper/forwarder-helper.cc',
@@ -74,6 +82,12 @@ def build(bld):
     headers.module = 'lorawan'
     headers.source = [
         'model/lora-net-device.h',
+        'model/cottoncandy-mac-header.h',
+        'model/cottoncandy-joinack-header.h',
+        'model/cottoncandy-address.h',
+        'model/cottoncandy-mac.h',
+        'model/cottoncandy-simple-app.h',
+        'model/cottoncandy-address-generator.h',
         'model/lorawan-mac.h',
         'model/lora-phy.h',
         'model/building-penetration-loss.h',
@@ -115,6 +129,8 @@ def build(bld):
         'helper/lora-helper.h',
         'helper/lora-phy-helper.h',
         'helper/lorawan-mac-helper.h',
+        'helper/cottoncandy-mac-helper.h',
+        'helper/cottoncandy-simple-app-helper.h',
         'helper/periodic-sender-helper.h',
         'helper/one-shot-sender-helper.h',
         'helper/forwarder-helper.h',

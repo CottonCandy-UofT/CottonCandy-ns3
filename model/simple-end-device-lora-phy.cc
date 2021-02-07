@@ -304,6 +304,10 @@ SimpleEndDeviceLoraPhy::EndReceive (Ptr<Packet> packet,
       // If there is one, perform the callback to inform the upper layer
       if (!m_rxOkCallback.IsNull ())
         {
+          LoraTag tag;
+          packet->RemovePacketTag (tag);
+          tag.SetReceivePower (event->GetRxPowerdBm ());
+          packet->AddPacketTag (tag);
           m_rxOkCallback (packet);
         }
 

@@ -28,6 +28,7 @@
 #include "ns3/net-device.h"
 #include "ns3/lora-net-device.h"
 #include "ns3/lora-packet-tracker.h"
+#include "ns3/cottoncandy-mac-helper.h"
 
 #include <ctime>
 
@@ -60,6 +61,10 @@ public:
                                       const LorawanMacHelper &macHelper,
                                       NodeContainer c) const;
 
+  virtual NetDeviceContainer Install (const LoraPhyHelper &phyHelper,
+                                      const CottoncandyMacHelper &macHelper,
+                                      NodeContainer c) const;
+
   /**
    * Install LoraNetDevice on a single node
    *
@@ -71,6 +76,10 @@ public:
    */
   virtual NetDeviceContainer Install (const LoraPhyHelper &phyHelper,
                                       const LorawanMacHelper &macHelper,
+                                      Ptr<Node> node) const;
+
+  virtual NetDeviceContainer Install (const LoraPhyHelper &phyHelper,
+                                      const CottoncandyMacHelper &macHelper,
                                       Ptr<Node> node) const;
 
   /**
