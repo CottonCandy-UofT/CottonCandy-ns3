@@ -22,6 +22,7 @@
 #define COTTONCANDY_MAC_H
 
 #include "ns3/object.h"
+#include "ns3/vector.h"
 #include "ns3/logical-lora-channel-helper.h"
 #include "ns3/packet.h"
 #include "ns3/lora-phy.h"
@@ -217,12 +218,11 @@ public:
 
 protected:
   /**
-  * The trace source that is fired when a packet cannot be sent because of duty
-  * cycle limitations.
+  * The trace source that is fired when a connection is established with a prent node
   *
   * \see class CallBackTraceSource
   */
-  TracedCallback<Ptr<const Packet> > m_cannotSendBecauseDutyCycle;
+  TracedCallback<uint16_t, uint16_t, ns3::Vector> m_connectionEstablished;
 
   /**
    * Trace source that is fired when a packet reaches the MAC layer.

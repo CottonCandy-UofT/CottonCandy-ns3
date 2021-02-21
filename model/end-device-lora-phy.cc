@@ -81,8 +81,16 @@ EndDeviceLoraPhy::~EndDeviceLoraPhy ()
 // Downlink sensitivity (from SX1272 datasheet)
 // {SF7, SF8, SF9, SF10, SF11, SF12}
 // These sensitivites are for a bandwidth of 125000 Hz
+
+//const double EndDeviceLoraPhy::sensitivity[6] =
+//{-124, -127, -130, -133, -135, -137};
+
+// Note: The following array is modified by Dison
+// For SX1276 used by Cottoncandy, the sensitity is different
+// These sensitvities are for a bandwidth of 125 kHz and for freqeuncy band at ~900MHz
+
 const double EndDeviceLoraPhy::sensitivity[6] =
-{-124, -127, -130, -133, -135, -137};
+{-123, -126, -129, -132, -133, -136};
 
 void
 EndDeviceLoraPhy::SetSpreadingFactor (uint8_t sf)

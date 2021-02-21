@@ -22,6 +22,7 @@
 #include "ns3/log.h"
 #include "ns3/simulator.h"
 #include "ns3/lorawan-mac-header.h"
+#include "ns3/cottoncandy-mac-header.h"
 #include <iostream>
 #include <fstream>
 
@@ -42,6 +43,27 @@ LoraPacketTracker::~LoraPacketTracker ()
 /////////////////
 // MAC metrics //
 /////////////////
+
+void LoraPacketTracker::CottoncandyConnectionCallback(uint16_t childAddr, uint16_t parentAddr, Vector childPosition){
+
+  CottoncandyStatus status;
+  status.parentAddr = parentAddr;
+  status.position = childPosition;
+
+  m_cottoncandyTopology.insert(std::pair<uint16_t, CottoncandyStatus> (childAddr,status));
+  NS_LOG_DEBUG("Insert edge " << parentAddr << " to " << childAddr);
+}
+
+std::string LoraPacketTracker::PrintCottoncandyEdges(){
+  //NS_LOG_DEBUG(m_cottoncandyTopology.size());
+  std::stringstream ss;
+  for (auto iter = m_cottoncandyTopology.begin(); iter != m_cottoncandyTopology.end(); iter++){
+    CottoncandyStatus status = iter->second;
+    ss << std::hex << iter->first << " " << status.position.x << " " << status.position.y << " " << std::hex << status.parentAddr << "\n";
+  }
+
+  return ss.str();
+}
 
 void
 LoraPacketTracker::MacTransmissionCallback (Ptr<Packet const> packet)
@@ -108,6 +130,107 @@ LoraPacketTracker::MacGwReceptionCallback (Ptr<Packet const> packet)
 /////////////////
 // PHY metrics //
 /////////////////
+
+/* The following callbacks are for cottoncandy so no need to check uplink or not*/
+void
+LoraPacketTracker::CottoncandyTransmissionCallback (Ptr<Packet const> packet, uint32_t edId)
+{
+
+  if(CottoncandyIsInterested(packet)){
+    NS_LOG_INFO ("PHY packet " << packet
+                                << " was transmitted by device "
+                                << edId);
+    // Create a packetStatus
+    PacketStatus status;
+    status.packet = packet;
+    status.sendTime = Simulator::Now ();
+    status.senderId = edId;
+
+    m_packetTracker.insert (std::pair<Ptr<Packet const>, PacketStatus> (packet, status));
+  }
+}
+/*
+void
+LoraPacketTracker::CottoncandyPacketReceptionCallback (Ptr<Packet const> packet, uint32_t gwId)
+{
+
+  if(CottoncandyIsInterested(packet)){
+    // Remove the successfully received packet from the list of sent ones
+    NS_LOG_INFO ("PHY packet " << packet
+                                << " was successfully received at gateway "
+                                << gwId);
+
+    std::map<Ptr<Packet const>, PacketStatus>::iterator it = m_packetTracker.find (packet);
+    (*it).second.outcomes.insert (std::pair<int, enum PhyPacketOutcome> (gwId,
+                                                                          RECEIVED));
+  }
+}
+
+void
+LoraPacketTracker::CottoncandyInterferenceCallback (Ptr<Packet const> packet, uint32_t gwId)
+{
+    if(CottoncandyIsInterested(packet)){
+      NS_LOG_INFO ("PHY packet " << packet
+                                  << " was interfered at gateway "
+                                  << gwId);
+
+      std::map<Ptr<Packet const>, PacketStatus>::iterator it = m_packetTracker.find (packet);
+      (*it).second.outcomes.insert (std::pair<int, enum PhyPacketOutcome> (gwId,
+                                                                            INTERFERED));
+    }
+}
+
+void
+LoraPacketTracker::CottoncandyNoMoreReceiversCallback (Ptr<Packet const> packet, uint32_t gwId)
+{
+  
+    NS_LOG_INFO ("PHY packet " << packet
+                                << " was lost because no more receivers at gateway "
+                                << gwId);
+    std::map<Ptr<Packet const>, PacketStatus>::iterator it = m_packetTracker.find (packet);
+    (*it).second.outcomes.insert (std::pair<int, enum PhyPacketOutcome> (gwId,
+                                                                          NO_MORE_RECEIVERS));
+  
+}
+
+void
+LoraPacketTracker::CottoncandyUnderSensitivityCallback (Ptr<Packet const> packet, uint32_t gwId)
+{
+      NS_LOG_INFO ("PHY packet " << packet
+                                 << " was lost because under sensitivity at gateway "
+                                 << gwId);
+
+      std::map<Ptr<Packet const>, PacketStatus>::iterator it = m_packetTracker.find (packet);
+      (*it).second.outcomes.insert (std::pair<int, enum PhyPacketOutcome> (gwId,
+                                                                           UNDER_SENSITIVITY));
+    
+}
+
+void
+LoraPacketTracker::CottoncandyLostBecauseTxCallback (Ptr<Packet const> packet, uint32_t gwId)
+{
+
+      NS_LOG_INFO ("PHY packet " << packet
+                                 << " was lost because of GW transmission at gateway "
+                                 << gwId);
+
+      std::map<Ptr<Packet const>, PacketStatus>::iterator it = m_packetTracker.find (packet);
+      (*it).second.outcomes.insert (std::pair<int, enum PhyPacketOutcome> (gwId,
+                                                                           LOST_BECAUSE_TX));
+    
+}*/
+
+bool LoraPacketTracker::CottoncandyIsInterested(Ptr<Packet const> packet){
+  NS_LOG_FUNCTION (this);
+
+  CottoncandyMacHeader mHdr;
+  Ptr<Packet> copy = packet->Copy ();
+  copy->RemoveHeader (mHdr);
+  uint8_t type = mHdr.GetType();
+  return (type == CottoncandyMacHeader::GATEWAY_REQ || type == CottoncandyMacHeader::NODE_REPLY);
+}
+
+/* The following callbacks are for lorawan*/
 
 void
 LoraPacketTracker::TransmissionCallback (Ptr<Packet const> packet, uint32_t edId)

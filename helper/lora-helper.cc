@@ -123,7 +123,12 @@ NS_LOG_COMPONENT_DEFINE ("LoraHelper");
                                                MakeCallback
                                                  (&LoraPacketTracker::RequiredTransmissionsCallback,
                                                  m_packetTracker));
+              mac->TraceConnectWithoutContext ("ConnectionEstablished",
+                                               MakeCallback
+                                                 (&LoraPacketTracker::CottoncandyConnectionCallback,
+                                                 m_packetTracker));
             }
+            /*
           else if (phyHelper.GetDeviceType () ==
                    TypeId::LookupByName ("ns3::SimpleGatewayLoraPhy"))
             {
@@ -136,7 +141,7 @@ NS_LOG_COMPONENT_DEFINE ("LoraHelper");
                                                MakeCallback
                                                (&LoraPacketTracker::MacGwReceptionCallback,
                                                 m_packetTracker));
-            }
+            }*/
         }
 
       node->AddDevice (device);

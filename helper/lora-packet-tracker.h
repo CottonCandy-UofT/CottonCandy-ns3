@@ -23,6 +23,7 @@
 
 #include "ns3/packet.h"
 #include "ns3/nstime.h"
+#include "ns3/vector.h"
 
 #include <map>
 #include <string>
@@ -65,9 +66,17 @@ struct RetransmissionStatus
   bool successful;
 };
 
+struct CottoncandyStatus
+{
+   ns3::Vector position;
+   uint16_t parentAddr;
+};
+
 typedef std::map<Ptr<Packet const>, MacPacketStatus> MacPacketData;
 typedef std::map<Ptr<Packet const>, PacketStatus> PhyPacketData;
 typedef std::map<Ptr<Packet const>, RetransmissionStatus> RetransmissionData;
+
+typedef std::map<uint16_t, CottoncandyStatus> CottoncandyEdges;
 
 
 class LoraPacketTracker
@@ -88,9 +97,37 @@ public:
   void UnderSensitivityCallback (Ptr<Packet const> packet, uint32_t systemId);
   void LostBecauseTxCallback (Ptr<Packet const> packet, uint32_t systemId);
 
+  /////////////////////////////////////////
+  // PHY layer callbacks for Cottoncandy //
+  /////////////////////////////////////////
+
+  // All the following functions check the packet status for GatewayREQ and NodeReply
+  // We are not interested in tracking lost packets during the JOIN period
+
+  // Use the same implementation as lorawan except removing the uplink check and adding
+  // the message type check.
+  void CottoncandyTransmissionCallback(Ptr<Packet const> packet, uint32_t systemId); //Needed
+  /*
+  void CottoncandyPacketReceptionCallback (Ptr<Packet const> packet, uint32_t systemId); //Needed
+  void CottoncandyInterferenceCallback (Ptr<Packet const> packet, uint32_t systemId); //Needed
+  void CottoncandyNoMoreReceiversCallback (Ptr<Packet const> packet, uint32_t systemId); // Time-domain collision
+  void CottoncandyLostBecauseTxCallback (Ptr<Packet const> packet, uint32_t systemId); //Basically half-duplex
+  */
+ 
+  // Check if the packet is a GatewayREQ or NodeReply
+  bool CottoncandyIsInterested(Ptr<Packet const> packet);
+
+  //Not important since a node only listens to its parent and childs (within its range)
+  void CottoncandyUnderSensitivityCallback (Ptr<Packet const> packet, uint32_t systemId); 
+
   /////////////////////////
   // MAC layer callbacks //
   /////////////////////////
+
+  void CottoncandyConnectionCallback(uint16_t childAddr, uint16_t parentAddr, Vector childPosition);
+
+  std::string PrintCottoncandyEdges();
+
   // Packet transmission at an EndDevice
   void MacTransmissionCallback (Ptr<Packet const> packet);
   void RequiredTransmissionsCallback (uint8_t reqTx, bool success,
@@ -163,6 +200,8 @@ private:
   PhyPacketData m_packetTracker;
   MacPacketData m_macPacketTracker;
   RetransmissionData m_reTransmissionTracker;
+
+  CottoncandyEdges m_cottoncandyTopology;
 };
 }
 }

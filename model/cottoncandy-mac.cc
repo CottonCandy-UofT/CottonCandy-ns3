@@ -26,11 +26,11 @@ CottoncandyMac::GetTypeId (void)
                      "was correctly received at the MAC layer",
                      MakeTraceSourceAccessor (&CottoncandyMac::m_receivedPacket),
                      "ns3::Packet::TracedCallback")
-    .AddTraceSource ("CannotSendBecauseDutyCycle",
-                     "Trace source indicating a packet "
-                     "could not be sent immediately because of duty cycle limitations",
-                     MakeTraceSourceAccessor (&CottoncandyMac::m_cannotSendBecauseDutyCycle),
-                     "ns3::Packet::TracedCallback")
+    .AddTraceSource ("ConnectionEstablished",
+                     "Trace source indicating a parent "
+                     "has been found and the connection has established",
+                     MakeTraceSourceAccessor (&CottoncandyMac::m_connectionEstablished),
+                     "ns3::TracedValueCallback::uint8_t")
     .AddConstructor<CottoncandyMac> ();
   return tid;
 }
@@ -302,11 +302,13 @@ void CottoncandyMac::Run(){
   if(m_address.Get() & CottoncandyAddress::GATEWAY_MASK){
     NS_LOG_DEBUG("This is a gateway device");
     m_parent.hops = 0;
+    m_connectionEstablished(m_address.Get(), 0, m_phy->GetMobility()->GetPosition());
   }
   else{
     NS_LOG_DEBUG("Initialize parent hops to 255");
     m_parent = ParentNode();
     m_parent.hops = 255; 
+    m_parent.parentAddr = CottoncandyAddress(0);
 
     bestParentCandidate = m_parent;
 
@@ -357,6 +359,9 @@ void CottoncandyMac::DiscoveryTimeout(){
     Send(cfmPacket);
 
     NS_LOG_INFO("Join Successful. Parent Node is " << m_parent.parentAddr.Print());
+
+    m_connectionEstablished(m_address.Get(), m_parent.parentAddr.Get(), m_phy->GetMobility()->GetPosition());
+    
 
   }else{
     NS_LOG_INFO("Restart the discovery process");
