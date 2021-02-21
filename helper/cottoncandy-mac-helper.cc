@@ -113,7 +113,7 @@ CottoncandyMacHelper::Create (Ptr<Node> node, Ptr<NetDevice> device) const
     */
 
   LogicalLoraChannelHelper channelHelper;
-  channelHelper.AddSubBand (915, 915.6, 1, 17);
+  channelHelper.AddSubBand (900, 915.6, 1, 17);
 
   //////////////////////
   // Default channels //

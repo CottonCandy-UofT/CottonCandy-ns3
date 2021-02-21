@@ -30,7 +30,17 @@ CottoncandyMac::GetTypeId (void)
                      "Trace source indicating a parent "
                      "has been found and the connection has established",
                      MakeTraceSourceAccessor (&CottoncandyMac::m_connectionEstablished),
-                     "ns3::TracedValueCallback::uint8_t")
+                     "ns3::TracedValueCallback::uint16_t")
+    .AddTraceSource("GatewayReqReceived",
+                    "Trace source indicating a node has received a"
+                    "request from the gateway",
+                    MakeTraceSourceAccessor(&CottoncandyMac::m_gatewayReqReceived),
+                    "ns3::TracedValueCallback::uint16_t")
+    .AddTraceSource("ReplyDelivered",
+                    "Trace source indicating the gateway has received a"
+                    "reply from a node",
+                    MakeTraceSourceAccessor(&CottoncandyMac::m_replyDelivered),
+                    "ns3::TracedValueCallback::uint16_t")
     .AddConstructor<CottoncandyMac> ();
   return tid;
 }
@@ -184,11 +194,11 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
 
   CottoncandyAddress src = CottoncandyAddress(mHdr.GetSrc());
   CottoncandyAddress dest = CottoncandyAddress(mHdr.GetDest());
-  NS_LOG_DEBUG("Packet arrived at CottoncandyMac from " << src.Print());
+  NS_LOG_INFO("Packet arrived at CottoncandyMac from " << src.Print());
   
   // Check if the message is intended for us
   if (dest != m_address && dest != BROADCAST_ADDR ){
-    NS_LOG_DEBUG("Packet dropped. The packet is for node " << dest.Print());
+    NS_LOG_INFO("Packet dropped. The packet is for node " << dest.Print());
     return;
   }
 
@@ -206,7 +216,7 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
       }
 
       // Construct a JOIN_ACK packet and send back
-      Ptr<Packet> packet = Create<Packet>();
+      Ptr<Packet> packetToSend = Create<Packet>();
       
       CottoncandyMacHeader macHdr;
       macHdr.SetType(CottoncandyMacHeader::JOIN_ACK);
@@ -220,13 +230,13 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
       }else{
         ackHdr.SetHops(m_parent.hops + 1);
       }
-      packet->AddHeader(ackHdr);
-      packet->AddHeader(macHdr);
+      packetToSend->AddHeader(ackHdr);
+      packetToSend->AddHeader(macHdr);
 
       Time delay = Seconds(m_uniformRV->GetValue(MIN_BACKOFF, MAX_BACKOFF));
 
       // Send the packet after the random backoff
-      Simulator::Schedule(delay,&CottoncandyMac::Send, this, packet);
+      Simulator::Schedule(delay,&CottoncandyMac::Send, this, packetToSend);
 
       NS_LOG_DEBUG("JOIN_ACK message will be sent to node " << macHdr.GetDest());
       
@@ -276,21 +286,153 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
     case CottoncandyMacHeader::MsgType::JOIN_CFM:
     {
       m_numChildren ++;
-      NS_LOG_INFO("JOIN_CFM message received. Now have " << (int)m_numChildren << " children");
+      NS_LOG_DEBUG("JOIN_CFM message received. Now have " << (int)m_numChildren << " children");
       break;
+    }
+
+    case CottoncandyMacHeader::MsgType::GATEWAY_REQ:
+    {
+      //Gateway itself does not need to reply
+      if(m_address.Get() & CottoncandyAddress::GATEWAY_MASK){
+        break;
+      }
+
+      if(src != m_parent.parentAddr){
+        break;
+      }
+
+      m_gatewayReqReceived(m_address.Get());
+
+      CottoncandyGatewayReqHeader reqHdr;
+      packetCopy->RemoveHeader(reqHdr);
+
+      m_maxBackoff = (double)reqHdr.GetMaxBackoff();
+
+      // Construct a NodeReply packet and send back
+      // We do not concern about the extra header (i.e. sequence number & datalen)
+      // So we just create a zero-filled payload and send
+      Ptr<Packet> replyPacket = Create<Packet>(4);
+      
+      CottoncandyMacHeader macHdr;
+      macHdr.SetType(CottoncandyMacHeader::MsgType::NODE_REPLY);
+      macHdr.SetSrc(m_address.Get());
+      macHdr.SetDest(src.Get());
+
+      replyPacket->AddHeader(macHdr);
+
+      Time delay = Seconds(m_uniformRV->GetValue(MIN_BACKOFF, m_maxBackoff));
+
+      NS_LOG_DEBUG("Send NodeReply to the parent");
+      // Send the packet after the random backoff
+      Simulator::Schedule(delay,&CottoncandyMac::Send, this, replyPacket);
+
+      if(m_numChildren == 0){
+        break;
+      }
+
+      //Re-add the headers with modified info
+      mHdr.SetSrc(m_address.Get());
+
+      reqHdr.SetMaxBackoff(m_numChildren * 3);
+
+      packetCopy->AddHeader(reqHdr);
+      packetCopy->AddHeader(mHdr);
+      
+      Time forwardDelay = Seconds(m_maxBackoff) + Seconds(m_uniformRV->GetValue(MIN_BACKOFF, m_maxBackoff));
+      
+      NS_LOG_DEBUG("Forward GatewayReq to the children");
+      Simulator::Schedule(forwardDelay,&CottoncandyMac::Send, this, packetCopy);
+
+      break;
+    }
+    case CottoncandyMacHeader::MsgType::NODE_REPLY:
+    {
+      if(m_address.Get() & CottoncandyAddress::GATEWAY_MASK){
+        //Record the successful reception
+        NS_LOG_DEBUG("NodeReply arrived at the gateway. Src = " << src.Print());
+        m_replyDelivered(src.Get());
+        break;
+      }
+      
+      //Forward the packet by modifying the packet dest field
+      mHdr.SetDest(m_parent.parentAddr.Get());
+
+      packetCopy->AddHeader(mHdr);
+
+      Time delay = Seconds(m_uniformRV->GetValue(MIN_BACKOFF, m_maxBackoff));
+
+      // Send the packet after the random backoff
+      Simulator::Schedule(delay,&CottoncandyMac::Send, this, packetCopy);
+
+      break;
+
     }
     default:
     {
-      NS_LOG_DEBUG("Unknown message received");
+      NS_LOG_INFO("Unknown message received");
     }
   
   }
 }
 
+void CottoncandyMac::SendGatewayRequest(){
+
+  NS_LOG_FUNCTION_NOARGS();
+  
+  if(m_numChildren == 0){
+    return;
+  }
+
+  NS_LOG_DEBUG("Send out a gatewayReq");
+  Ptr<Packet> packet = Create<Packet>();
+
+  CottoncandyMacHeader macHdr;
+  macHdr.SetType(CottoncandyMacHeader::MsgType::GATEWAY_REQ);
+  macHdr.SetSrc(m_address.Get());
+  macHdr.SetDest(BROADCAST_ADDR.Get());
+
+  //Add the remaining GatewayReq header
+  CottoncandyGatewayReqHeader reqHdr;
+  reqHdr.SetSeqNumber(m_seqNum);
+  reqHdr.SetNextReqTime(m_reqInterval);
+  reqHdr.SetMaxBackoff(m_numChildren * 3);
+
+  packet->AddHeader(reqHdr);
+  packet->AddHeader(macHdr);
+
+  Send(packet);
+
+  if(m_seqNum != 255){
+    m_seqNum ++;
+    Simulator::Schedule(Seconds((double)m_reqInterval), &CottoncandyMac::SendGatewayRequest, this);
+  }else{
+    //Stop after we have sent 254 requests since the seqNumber will overflow
+  }
+  m_gatewayReqReceived(m_address.Get());
+  m_replyDelivered(m_address.Get());
+  
+}
+
 void CottoncandyMac::Send(Ptr<Packet> packet){
 
-  NS_LOG_DEBUG("Sending a packet");
+  // Should only have 1 channel
+  std::vector<Ptr<LogicalLoraChannel> > logicalChannels;
+  logicalChannels = m_channelHelper.GetEnabledChannelList (); 
+  NS_ASSERT(logicalChannels.size() == 1);
 
+  Ptr<LogicalLoraChannel> channel = logicalChannels.at(0);
+
+  Time nextTxDelay = m_channelHelper.GetWaitingTime(channel);
+
+  if(nextTxDelay == Seconds(0)){
+    DoSend(packet);
+  }else{
+    NS_LOG_DEBUG("Need to postphone the TX");
+    Simulator::Schedule(nextTxDelay, &CottoncandyMac::DoSend, this, packet);
+  }
+}
+
+void CottoncandyMac::DoSend(Ptr<Packet> packet){
   m_phy->Send(packet, m_params, COTTONCANDY_FREQUENCY, 17);
 }
 
@@ -303,6 +445,8 @@ void CottoncandyMac::Run(){
     NS_LOG_DEBUG("This is a gateway device");
     m_parent.hops = 0;
     m_connectionEstablished(m_address.Get(), 0, m_phy->GetMobility()->GetPosition());
+
+    Simulator::Schedule(Seconds((double)m_reqInterval), &CottoncandyMac::SendGatewayRequest, this);
   }
   else{
     NS_LOG_DEBUG("Initialize parent hops to 255");
@@ -358,13 +502,13 @@ void CottoncandyMac::DiscoveryTimeout(){
 
     Send(cfmPacket);
 
-    NS_LOG_INFO("Join Successful. Parent Node is " << m_parent.parentAddr.Print());
+    NS_LOG_DEBUG("Join Successful. Parent Node is " << m_parent.parentAddr.Print());
 
     m_connectionEstablished(m_address.Get(), m_parent.parentAddr.Get(), m_phy->GetMobility()->GetPosition());
     
 
   }else{
-    NS_LOG_INFO("Restart the discovery process");
+    NS_LOG_DEBUG("Restart the discovery process");
 
     Time delay = Seconds(m_uniformRV->GetValue(0,5));
 

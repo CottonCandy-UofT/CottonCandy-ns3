@@ -49,9 +49,27 @@ void LoraPacketTracker::CottoncandyConnectionCallback(uint16_t childAddr, uint16
   CottoncandyStatus status;
   status.parentAddr = parentAddr;
   status.position = childPosition;
+  status.numReplyDelivered = 0;
+  status.numReqReceived = 0;
 
   m_cottoncandyTopology.insert(std::pair<uint16_t, CottoncandyStatus> (childAddr,status));
   NS_LOG_DEBUG("Insert edge " << parentAddr << " to " << childAddr);
+}
+
+void LoraPacketTracker::CottoncandyReceiveReqCallback(uint16_t nodeAddr){
+  auto it = m_cottoncandyTopology.find (nodeAddr);
+
+  if(it != m_cottoncandyTopology.end()){
+    it->second.numReqReceived ++;
+  }
+}
+
+void LoraPacketTracker::CottoncandyReplyDeliveredCallback(uint16_t nodeAddr){
+  auto it = m_cottoncandyTopology.find (nodeAddr);
+
+  if(it != m_cottoncandyTopology.end()){
+    it->second.numReplyDelivered ++;
+  }
 }
 
 std::string LoraPacketTracker::PrintCottoncandyEdges(){
@@ -59,7 +77,9 @@ std::string LoraPacketTracker::PrintCottoncandyEdges(){
   std::stringstream ss;
   for (auto iter = m_cottoncandyTopology.begin(); iter != m_cottoncandyTopology.end(); iter++){
     CottoncandyStatus status = iter->second;
-    ss << std::hex << iter->first << " " << status.position.x << " " << status.position.y << " " << std::hex << status.parentAddr << "\n";
+    ss << std::hex << iter->first << " " << status.position.x << " " << status.position.y << " " 
+       << std::hex << status.parentAddr << " " << std::dec << status.numReqReceived <<  " " 
+       << status.numReplyDelivered <<"\n";
   }
 
   return ss.str();

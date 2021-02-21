@@ -127,6 +127,15 @@ NS_LOG_COMPONENT_DEFINE ("LoraHelper");
                                                MakeCallback
                                                  (&LoraPacketTracker::CottoncandyConnectionCallback,
                                                  m_packetTracker));
+              mac->TraceConnectWithoutContext("GatewayReqReceived",
+                                              MakeCallback
+                                                 (&LoraPacketTracker::CottoncandyReceiveReqCallback,
+                                                 m_packetTracker));
+
+              mac->TraceConnectWithoutContext("ReplyDelivered",
+                                              MakeCallback
+                                                 (&LoraPacketTracker::CottoncandyReplyDeliveredCallback,
+                                                 m_packetTracker));
             }
             /*
           else if (phyHelper.GetDeviceType () ==

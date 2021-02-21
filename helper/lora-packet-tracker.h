@@ -70,6 +70,12 @@ struct CottoncandyStatus
 {
    ns3::Vector position;
    uint16_t parentAddr;
+
+   //Number of requests sucessfully received
+   uint32_t numReqReceived;
+
+   //Number of its own replies delivered to the gateway
+   uint32_t numReplyDelivered;
 };
 
 typedef std::map<Ptr<Packet const>, MacPacketStatus> MacPacketData;
@@ -125,7 +131,8 @@ public:
   /////////////////////////
 
   void CottoncandyConnectionCallback(uint16_t childAddr, uint16_t parentAddr, Vector childPosition);
-
+  void CottoncandyReceiveReqCallback(uint16_t nodeAddr);
+  void CottoncandyReplyDeliveredCallback(uint16_t nodeAddr);
   std::string PrintCottoncandyEdges();
 
   // Packet transmission at an EndDevice

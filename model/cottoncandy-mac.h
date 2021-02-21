@@ -30,6 +30,7 @@
 #include "ns3/cottoncandy-address.h"
 #include "ns3/cottoncandy-mac-header.h"
 #include "ns3/cottoncandy-joinack-header.h"
+#include "ns3/cottoncandy-gatewayreq-header.h"
 #include "ns3/lora-tag.h"
 #include <array>
 
@@ -215,6 +216,10 @@ public:
 
   void SetDeviceAddress(CottoncandyAddress addr);
 
+  void DoSend(Ptr<Packet> packet);
+
+  void SendGatewayRequest();
+
 
 protected:
   /**
@@ -223,6 +228,10 @@ protected:
   * \see class CallBackTraceSource
   */
   TracedCallback<uint16_t, uint16_t, ns3::Vector> m_connectionEstablished;
+
+  TracedCallback<uint16_t> m_gatewayReqReceived;
+
+  TracedCallback<uint16_t> m_replyDelivered;
 
   /**
    * Trace source that is fired when a packet reaches the MAC layer.
@@ -301,6 +310,12 @@ protected:
   Time m_discoveryTimeout = Seconds(10);
 
   LoraTxParameters m_params;
+
+  uint8_t m_seqNum = 1; 
+
+  uint32_t m_reqInterval = 3600;
+
+  double m_maxBackoff = MAX_BACKOFF;
   
 };
 
