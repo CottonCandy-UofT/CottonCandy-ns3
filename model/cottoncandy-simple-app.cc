@@ -62,6 +62,10 @@ void CottoncandySimpleApp::SetStartTime(Time startTime){
   m_startTime = startTime;
 }
 
+void CottoncandySimpleApp::SetReplyLen(uint8_t len){
+  m_replyLen = len;
+}
+
 void CottoncandySimpleApp::Start(){
   m_mac->Run();
 }
@@ -73,13 +77,14 @@ CottoncandySimpleApp::StartApplication (void)
 
   // Make sure we have a MAC layer
   if (m_mac == 0)
-    {
-      // Assumes there's only one device
-      Ptr<LoraNetDevice> loraNetDevice = m_node->GetDevice (0)->GetObject<LoraNetDevice> ();
+  {
+    // Assumes there's only one device
+    Ptr<LoraNetDevice> loraNetDevice = m_node->GetDevice (0)->GetObject<LoraNetDevice> ();
 
-      m_mac = loraNetDevice->GetCMac ();
-      NS_ASSERT (m_mac != 0);
-    }
+    m_mac = loraNetDevice->GetCMac ();
+    NS_ASSERT (m_mac != 0);
+  }
+  m_mac->SetReplyLen(m_replyLen);
 
   Simulator::Schedule (m_startTime, &CottoncandySimpleApp::Start, this);
 }

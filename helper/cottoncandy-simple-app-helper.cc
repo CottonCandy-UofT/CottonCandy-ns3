@@ -30,6 +30,12 @@ CottoncandySimpleAppHelper::SetStartTime (double startTime)
 }
 
 void
+CottoncandySimpleAppHelper::SetReplyLen(uint8_t len)
+{
+  m_replyLen = len;
+}
+
+void
 CottoncandySimpleAppHelper::SetAttribute (std::string name,
                                    const AttributeValue &value)
 {
@@ -68,6 +74,7 @@ CottoncandySimpleAppHelper::InstallPriv (Ptr<Node> node) const
   Time startDelay = Seconds(randomDelay);
 
   app->SetStartTime (startDelay);
+  app->SetReplyLen(m_replyLen);
 
   app->SetNode (node);
   node->AddApplication (app);

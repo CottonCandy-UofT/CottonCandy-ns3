@@ -311,7 +311,7 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
       // Construct a NodeReply packet and send back
       // We do not concern about the extra header (i.e. sequence number & datalen)
       // So we just create a zero-filled payload and send
-      Ptr<Packet> replyPacket = Create<Packet>(4);
+      Ptr<Packet> replyPacket = Create<Packet>(2 + m_replyLen);
       
       CottoncandyMacHeader macHdr;
       macHdr.SetType(CottoncandyMacHeader::MsgType::NODE_REPLY);
@@ -483,6 +483,10 @@ void CottoncandyMac::SetDeviceAddress(CottoncandyAddress addr){
 
   NS_LOG_DEBUG("Address set to " << addr.Print());
   m_address = addr;
+}
+
+void CottoncandyMac::SetReplyLen(uint8_t len){
+  m_replyLen = len;
 }
 
 void CottoncandyMac::DiscoveryTimeout(){

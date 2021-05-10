@@ -35,6 +35,8 @@ public:
 
   void SetStartTime (double startTime);
 
+  void SetReplyLen (uint8_t len);
+
 private:
   Ptr<Application> InstallPriv (Ptr<Node> node) const;
 
@@ -42,6 +44,8 @@ private:
 
   double m_startTime; //!< Time at which the simple app will be configured to
                    //start the packet
+
+  uint8_t m_replyLen;
   Ptr<UniformRandomVariable> m_uniformRv;
 };
 

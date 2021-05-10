@@ -216,6 +216,8 @@ public:
 
   void SetDeviceAddress(CottoncandyAddress addr);
 
+  void SetReplyLen(uint8_t len);
+
   void DoSend(Ptr<Packet> packet);
 
   void SendGatewayRequest();
@@ -300,6 +302,8 @@ protected:
   Ptr<Packet> m_joinBeacon;
 
   CottoncandyAddress m_address;
+
+  uint8_t m_replyLen = 0;
 
     /**
    * An uniform random variable, used by the Shuffle method to randomly reorder

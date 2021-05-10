@@ -26,6 +26,8 @@ public:
 
   void SetStartTime(Time startTime);
 
+  void SetReplyLen(uint8_t len);
+
   /**
    * Stop the application.
    */
@@ -44,6 +46,8 @@ private:
   Ptr<CottoncandyMac> m_mac;
 
   Time m_startTime;
+
+  uint8_t m_replyLen;
 };
 
 } //namespace ns3
