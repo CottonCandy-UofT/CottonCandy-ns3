@@ -222,6 +222,7 @@ public:
 
   void SendGatewayRequest();
 
+  void ReportHalfDuplex(Ptr<Packet const> packet);
 
 protected:
   /**
@@ -234,6 +235,8 @@ protected:
   TracedCallback<uint16_t> m_gatewayReqReceived;
 
   TracedCallback<uint16_t> m_replyDelivered;
+
+  TracedCallback<uint16_t> m_halfDuplexDetected;
 
   /**
    * Trace source that is fired when a packet reaches the MAC layer.

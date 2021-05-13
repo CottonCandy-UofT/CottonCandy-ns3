@@ -154,6 +154,10 @@ LoraPhy::SetTxFinishedCallback (TxFinishedCallback callback)
   m_txFinishedCallback = callback;
 }
 
+void 
+LoraPhy::SetHalfDuplexCallback (HalfDuplexCallback callback){
+  m_halfDuplexCallback = callback;
+}
 
 Time
 LoraPhy::GetOnAirTime (Ptr<Packet> packet, LoraTxParameters txParams)

@@ -104,6 +104,9 @@ public:
    */
   typedef Callback<void, Ptr<const Packet> > TxFinishedCallback;
 
+
+  typedef Callback<void, Ptr<const Packet> > HalfDuplexCallback;
+
   /**
    * Start receiving a packet.
    *
@@ -187,6 +190,8 @@ public:
    * notified after the transmission of a packet.
    */
   void SetTxFinishedCallback (TxFinishedCallback callback);
+
+  void SetHalfDuplexCallback (HalfDuplexCallback callback);
 
   /**
    * Get the mobility model associated to this PHY.
@@ -322,6 +327,11 @@ protected:
    * The callback to perform upon the end of a transmission.
    */
   TxFinishedCallback m_txFinishedCallback;
+
+  /**
+   * Add this to track the half-duplex problem
+   */ 
+  HalfDuplexCallback m_halfDuplexCallback;
 };
 
 } /* namespace ns3 */

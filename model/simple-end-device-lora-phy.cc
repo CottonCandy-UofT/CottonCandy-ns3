@@ -139,10 +139,13 @@ SimpleEndDeviceLoraPhy::StartReceive (Ptr<Packet> packet, double rxPowerDbm,
       {
         NS_LOG_INFO ("Dropping packet because device is in SLEEP state");
         break;
+        //We currently do not concern this issue in Cottoncandy
       }
     case TX:
       {
         NS_LOG_INFO ("Dropping packet because device is in TX state");
+        //Need to track the occurances of this half-duplex problem
+        m_halfDuplexCallback(packet);
         break;
       }
     case RX:

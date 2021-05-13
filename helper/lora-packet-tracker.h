@@ -78,6 +78,13 @@ struct CottoncandyStatus
    uint32_t numReplyDelivered;
 };
 
+typedef struct CottoncandyPhyPerf
+{
+  uint32_t numCollisions = 0;
+  uint32_t numReqHalfDuplex = 0;
+  uint32_t numReplyHalfDuplex = 0;
+} CottoncandyPhyPerf;
+
 typedef std::map<Ptr<Packet const>, MacPacketStatus> MacPacketData;
 typedef std::map<Ptr<Packet const>, PacketStatus> PhyPacketData;
 typedef std::map<Ptr<Packet const>, RetransmissionStatus> RetransmissionData;
@@ -120,11 +127,14 @@ public:
   void CottoncandyLostBecauseTxCallback (Ptr<Packet const> packet, uint32_t systemId); //Basically half-duplex
   */
  
+  void CottoncandyLostBecauseTxCallback (uint16_t address);
   // Check if the packet is a GatewayREQ or NodeReply
   bool CottoncandyIsInterested(Ptr<Packet const> packet);
 
   //Not important since a node only listens to its parent and childs (within its range)
   void CottoncandyUnderSensitivityCallback (Ptr<Packet const> packet, uint32_t systemId); 
+  
+  std::string GetHalfDuplexPacketCount();
 
   /////////////////////////
   // MAC layer callbacks //
@@ -209,6 +219,7 @@ private:
   RetransmissionData m_reTransmissionTracker;
 
   CottoncandyEdges m_cottoncandyTopology;
+  CottoncandyPhyPerf m_cottoncandyPhyPerf;
 };
 }
 }

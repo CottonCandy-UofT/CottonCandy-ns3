@@ -240,6 +240,17 @@ LoraPacketTracker::CottoncandyLostBecauseTxCallback (Ptr<Packet const> packet, u
     
 }*/
 
+void
+LoraPacketTracker::CottoncandyLostBecauseTxCallback (uint16_t address)
+{
+
+  NS_LOG_DEBUG ("PHY packet " << " was lost because of transmission at node "
+                              << address);
+
+  m_cottoncandyPhyPerf.numReplyHalfDuplex++;
+
+}
+
 bool LoraPacketTracker::CottoncandyIsInterested(Ptr<Packet const> packet){
   NS_LOG_FUNCTION (this);
 
@@ -422,6 +433,17 @@ LoraPacketTracker::CountPhyPacketsPerGw (Time startTime, Time stopTime,
 
   return packetCounts;
 }
+
+std::string LoraPacketTracker::GetHalfDuplexPacketCount()
+{
+  std::stringstream ss;
+
+  ss << "Replies lost due to half-duplex: " << m_cottoncandyPhyPerf.numReplyHalfDuplex << std::endl;
+
+  return ss.str();
+}
+
+
 std::string
 LoraPacketTracker::PrintPhyPacketsPerGw (Time startTime, Time stopTime,
                                          int gwId)

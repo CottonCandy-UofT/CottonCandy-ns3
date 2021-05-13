@@ -71,6 +71,7 @@ NS_LOG_COMPONENT_DEFINE ("LoraHelper");
                                                  MakeCallback
                                                  (&LoraPacketTracker::TransmissionCallback,
                                                   m_packetTracker));
+            
               }
             else if (phyHelper.GetDeviceType () ==
                      TypeId::LookupByName ("ns3::SimpleGatewayLoraPhy"))
@@ -135,6 +136,11 @@ NS_LOG_COMPONENT_DEFINE ("LoraHelper");
               mac->TraceConnectWithoutContext("ReplyDelivered",
                                               MakeCallback
                                                  (&LoraPacketTracker::CottoncandyReplyDeliveredCallback,
+                                                 m_packetTracker));
+
+              mac->TraceConnectWithoutContext("HalfDuplexDetected",
+                                              MakeCallback
+                                                 (&LoraPacketTracker::CottoncandyLostBecauseTxCallback,
                                                  m_packetTracker));
             }
             /*

@@ -69,7 +69,7 @@ EndDeviceLoraPhy::GetTypeId (void)
 // These will then be changed by helpers.
 EndDeviceLoraPhy::EndDeviceLoraPhy () :
   m_state (SLEEP),
-  m_frequency (868.1),
+  m_frequency (915.0),
   m_sf (7)
 {
 }

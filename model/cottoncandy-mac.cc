@@ -41,6 +41,10 @@ CottoncandyMac::GetTypeId (void)
                     "reply from a node",
                     MakeTraceSourceAccessor(&CottoncandyMac::m_replyDelivered),
                     "ns3::TracedValueCallback::uint16_t")
+    .AddTraceSource("HalfDuplexDetected",
+                    "Trace source indicating a half-duplex event happened",
+                    MakeTraceSourceAccessor(&CottoncandyMac::m_halfDuplexDetected),
+                    "ns3::TracedValueCallback::uint16_t")
     .AddConstructor<CottoncandyMac> ();
   return tid;
 }
@@ -86,6 +90,23 @@ CottoncandyMac::SetPhy (Ptr<LoraPhy> phy)
   m_phy->SetReceiveOkCallback (MakeCallback (&CottoncandyMac::Receive, this));
   //m_phy->SetReceiveFailedCallback (MakeCallback (&CottoncandyMac::FailedReception, this));
   //m_phy->SetTxFinishedCallback (MakeCallback (&CottoncandyMac::TxFinished, this));
+  m_phy->SetHalfDuplexCallback(MakeCallback(&CottoncandyMac::ReportHalfDuplex, this));
+}
+
+void CottoncandyMac::ReportHalfDuplex(Ptr<Packet const> packet){
+  Ptr<Packet> packetCopy = packet->Copy();
+
+  CottoncandyMacHeader mHdr;
+
+  packetCopy->RemoveHeader(mHdr);
+
+  CottoncandyAddress dest = CottoncandyAddress(mHdr.GetDest());
+
+  // Report the half-duplex problem when the packet is intended for this node and 
+  // is a reply message (we are not interested in other messages)
+  if(dest == m_address && mHdr.GetType() == CottoncandyMacHeader::NODE_REPLY){
+    m_halfDuplexDetected(m_address.Get());
+  }
 }
 
 LogicalLoraChannelHelper
