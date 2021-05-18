@@ -224,6 +224,8 @@ public:
 
   void ReportHalfDuplex(Ptr<Packet const> packet);
 
+  void FailedReception(Ptr<Packet const> packet);
+
 protected:
   /**
   * The trace source that is fired when a connection is established with a prent node
@@ -237,6 +239,8 @@ protected:
   TracedCallback<uint16_t> m_replyDelivered;
 
   TracedCallback<uint16_t> m_halfDuplexDetected;
+
+  TracedCallback<uint8_t> m_collisionDetected;
 
   /**
    * Trace source that is fired when a packet reaches the MAC layer.

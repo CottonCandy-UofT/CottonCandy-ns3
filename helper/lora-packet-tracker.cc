@@ -251,6 +251,12 @@ LoraPacketTracker::CottoncandyLostBecauseTxCallback (uint16_t address)
 
 }
 
+void 
+LoraPacketTracker::CottoncandyLostBecauseCollisionCallback(uint8_t hops)
+{
+  m_cottoncandyCollisionLoc.push_back(hops);
+}
+
 bool LoraPacketTracker::CottoncandyIsInterested(Ptr<Packet const> packet){
   NS_LOG_FUNCTION (this);
 
@@ -439,6 +445,34 @@ std::string LoraPacketTracker::GetHalfDuplexPacketCount()
   std::stringstream ss;
 
   ss << "Replies lost due to half-duplex: " << m_cottoncandyPhyPerf.numReplyHalfDuplex << std::endl;
+
+  return ss.str();
+}
+
+std::string LoraPacketTracker::GetCollisionStats()
+{
+  std::stringstream ss;
+
+  int total = m_cottoncandyCollisionLoc.size();
+
+  ss << "Total number of collisions: " << total << std::endl;
+
+  uint8_t max = 0; 
+  for(auto el : m_cottoncandyCollisionLoc){
+    if (el > max){
+      max = el;
+    }
+  }
+
+  for(uint8_t i = 1; i <= max; i++){
+    int count = 0;
+    for(auto el : m_cottoncandyCollisionLoc){
+      if(el == i){
+        count ++;
+      }
+    }
+    ss << "At " << (int)i << " hops left: " << count << std::endl;
+  }
 
   return ss.str();
 }

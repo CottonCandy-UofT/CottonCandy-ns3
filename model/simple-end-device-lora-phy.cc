@@ -145,12 +145,18 @@ SimpleEndDeviceLoraPhy::StartReceive (Ptr<Packet> packet, double rxPowerDbm,
       {
         NS_LOG_INFO ("Dropping packet because device is in TX state");
         //Need to track the occurances of this half-duplex problem
-        m_halfDuplexCallback(packet);
+        if(!m_halfDuplexCallback.IsNull()){
+          m_halfDuplexCallback(packet);
+        }
         break;
       }
     case RX:
       {
         NS_LOG_INFO ("Dropping packet because device is already in RX state");
+
+        if(!m_rxFailedCallback.IsNull()){
+          m_rxFailedCallback(packet);
+        }
         break;
       }
     // If we are in STANDBY mode, we can potentially lock on the currently

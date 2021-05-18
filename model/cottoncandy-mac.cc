@@ -42,9 +42,13 @@ CottoncandyMac::GetTypeId (void)
                     MakeTraceSourceAccessor(&CottoncandyMac::m_replyDelivered),
                     "ns3::TracedValueCallback::uint16_t")
     .AddTraceSource("HalfDuplexDetected",
-                    "Trace source indicating a half-duplex event happened",
+                    "Trace source indicating a half-duplex event",
                     MakeTraceSourceAccessor(&CottoncandyMac::m_halfDuplexDetected),
                     "ns3::TracedValueCallback::uint16_t")
+    .AddTraceSource("CollisionDetected",
+                    "Trace source indicating a failed RX event",
+                    MakeTraceSourceAccessor(&CottoncandyMac::m_collisionDetected),
+                    "ns3::TracedValueCallback::uint8_t")
     .AddConstructor<CottoncandyMac> ();
   return tid;
 }
@@ -88,9 +92,26 @@ CottoncandyMac::SetPhy (Ptr<LoraPhy> phy)
 
   // Connect the receive callbacks
   m_phy->SetReceiveOkCallback (MakeCallback (&CottoncandyMac::Receive, this));
-  //m_phy->SetReceiveFailedCallback (MakeCallback (&CottoncandyMac::FailedReception, this));
+  m_phy->SetReceiveFailedCallback (MakeCallback (&CottoncandyMac::FailedReception, this));
   //m_phy->SetTxFinishedCallback (MakeCallback (&CottoncandyMac::TxFinished, this));
   m_phy->SetHalfDuplexCallback(MakeCallback(&CottoncandyMac::ReportHalfDuplex, this));
+}
+
+void CottoncandyMac::FailedReception(Ptr<Packet const> packet){
+  Ptr<Packet> packetCopy = packet->Copy();
+
+  CottoncandyMacHeader mHdr;
+
+  packetCopy->RemoveHeader(mHdr);
+
+  CottoncandyAddress dest = CottoncandyAddress(mHdr.GetDest());
+  
+  uint8_t remainingHops = m_parent.hops + 1;
+
+  if(dest == m_address && mHdr.GetType() == CottoncandyMacHeader::NODE_REPLY){
+    NS_LOG_DEBUG("A packet RX failed due to collisions");
+    m_collisionDetected(remainingHops);
+  }
 }
 
 void CottoncandyMac::ReportHalfDuplex(Ptr<Packet const> packet){
@@ -105,6 +126,7 @@ void CottoncandyMac::ReportHalfDuplex(Ptr<Packet const> packet){
   // Report the half-duplex problem when the packet is intended for this node and 
   // is a reply message (we are not interested in other messages)
   if(dest == m_address && mHdr.GetType() == CottoncandyMacHeader::NODE_REPLY){
+    NS_LOG_DEBUG("A packet RX failed due to half duplex");
     m_halfDuplexDetected(m_address.Get());
   }
 }

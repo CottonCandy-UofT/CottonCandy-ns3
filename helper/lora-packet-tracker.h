@@ -90,6 +90,7 @@ typedef std::map<Ptr<Packet const>, PacketStatus> PhyPacketData;
 typedef std::map<Ptr<Packet const>, RetransmissionStatus> RetransmissionData;
 
 typedef std::map<uint16_t, CottoncandyStatus> CottoncandyEdges;
+typedef std::vector<uint8_t> CottoncandyCollisionLocation;
 
 
 class LoraPacketTracker
@@ -128,6 +129,8 @@ public:
   */
  
   void CottoncandyLostBecauseTxCallback (uint16_t address);
+
+  void CottoncandyLostBecauseCollisionCallback(uint8_t hops);
   // Check if the packet is a GatewayREQ or NodeReply
   bool CottoncandyIsInterested(Ptr<Packet const> packet);
 
@@ -135,6 +138,7 @@ public:
   void CottoncandyUnderSensitivityCallback (Ptr<Packet const> packet, uint32_t systemId); 
   
   std::string GetHalfDuplexPacketCount();
+  std::string GetCollisionStats();
 
   /////////////////////////
   // MAC layer callbacks //
@@ -220,6 +224,7 @@ private:
 
   CottoncandyEdges m_cottoncandyTopology;
   CottoncandyPhyPerf m_cottoncandyPhyPerf;
+  CottoncandyCollisionLocation m_cottoncandyCollisionLoc;
 };
 }
 }

@@ -47,9 +47,9 @@ main (int argc, char *argv[])
   //LogComponentEnable ("LogicalLoraChannel", LOG_LEVEL_ALL);
   //LogComponentEnable ("LoraHelper", LOG_LEVEL_ALL);
   //LogComponentEnable ("LoraPhyHelper", LOG_LEVEL_ALL);
-  //LogComponentEnable ("SimpleEndDeviceLoraPhy", LOG_LEVEL_ALL);
+  //LogComponentEnable ("SimpleEndDeviceLoraPhy", LOG_LEVEL_DEBUG);
   //LogComponentEnable ("CottoncandySimpleAppHelper", LOG_LEVEL_ALL);
-  LogComponentEnable ("LoraPacketTracker", LOG_LEVEL_DEBUG);
+  //LogComponentEnable ("LoraPacketTracker", LOG_LEVEL_DEBUG);
   LogComponentEnableAll (LOG_PREFIX_FUNC);
   LogComponentEnableAll (LOG_PREFIX_NODE);
   LogComponentEnableAll (LOG_PREFIX_TIME);
@@ -222,7 +222,8 @@ main (int argc, char *argv[])
   topologyFile << tracker.PrintCottoncandyEdges() << std::endl;
   topologyFile.close();
 
-  std::cout << tracker.GetHalfDuplexPacketCount();
+  std::cout << tracker.GetHalfDuplexPacketCount() << std::endl;
+  std::cout << tracker.GetCollisionStats() << std::endl;
 
   return 0;
 }

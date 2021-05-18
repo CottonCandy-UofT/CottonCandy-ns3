@@ -69,7 +69,10 @@ nx.draw_networkx(G, nodes_location, node_color=color_list,with_labels=False)
 
 #print(G.degree())
 
+total_num_req_recv = sum(num_req_received.values())
+total_num_reply_deliver = sum(num_reply_delivered.values())
 
+print("Req vs Reply: ", (total_num_req_recv, total_num_reply_deliver))
 
 reference_line = [total_num_req] * num_nodes
 
