@@ -51,7 +51,7 @@ static const double MIN_BACKOFF = 0.1;
 
 static const double MAX_BACKOFF = 3;
 
-static const double COTTONCANDY_FREQUENCY = 915;
+static const double COTTONCANDY_DL_FREQUENCY = 900;
 /**
  * Class representing the LoRaWAN MAC layer.
  *
@@ -88,7 +88,7 @@ public:
    *
    * \param packet The packet to send.
    */
-  virtual void Send (Ptr<Packet> packet);
+  virtual void Send (Ptr<Packet> packet, double freq);
 
   /**
    * Receive a packet from the lower layer.
@@ -216,9 +216,11 @@ public:
 
   void SetDeviceAddress(CottoncandyAddress addr);
 
+  void SetFrequency(double freq);
+
   void SetReplyLen(uint8_t len);
 
-  void DoSend(Ptr<Packet> packet);
+  void DoSend(Ptr<Packet> packet,double freq);
 
   void SendGatewayRequest();
 
@@ -327,6 +329,10 @@ protected:
   uint32_t m_reqInterval = 3600;
 
   double m_maxBackoff = MAX_BACKOFF;
+
+  double m_ulFreq = 900;
+
+  uint8_t m_channel;
   
 };
 

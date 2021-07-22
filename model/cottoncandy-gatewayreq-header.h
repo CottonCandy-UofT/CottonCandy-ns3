@@ -41,8 +41,13 @@ public:
 
   uint8_t GetMaxBackoff() const;
 
+  void SetOption(uint8_t option);
+
+  uint8_t GetOption() const;
+
 private:
   uint8_t m_seqNum;
+  uint8_t m_option;
   uint32_t m_nextReqTime;
   uint8_t m_maxBackoff;
 

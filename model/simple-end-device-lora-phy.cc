@@ -61,11 +61,28 @@ SimpleEndDeviceLoraPhy::Send (Ptr<Packet> packet, LoraTxParameters txParams,
   NS_LOG_INFO ("Current state: " << m_state);
 
   // We must be either in STANDBY or SLEEP mode to send a packet
-  if (m_state != STANDBY && m_state != SLEEP)
+  if (m_state == TX)
     {
-      NS_LOG_INFO ("Cannot send because device is currently not in STANDBY or SLEEP mode");
+      Ptr<Packet> packetCopy = packet->Copy();
+
+      CottoncandyMacHeader mHdr;
+
+      packetCopy->RemoveHeader(mHdr);
+
+      if(mHdr.GetType() == CottoncandyMacHeader::MsgType::NODE_REPLY){
+        printf("Cannot send because device is currently in TX mode\n");
+      }
       return;
     }
+
+  if(m_state == RX && m_currentRxEventId.GetUid() != 0 && !m_currentRxEventId.IsExpired()){
+
+    printf("An ongoing RX event has been cancelled due to TX\n");
+    
+      // This should also be treated as a half-duplex event
+    m_halfDuplexCallback(m_currentRxPacket);
+    Simulator::Cancel(m_currentRxEventId);
+  }
 
   // Compute the duration of the transmission
   Time duration = GetOnAirTime (packet, txParams);
@@ -145,7 +162,7 @@ SimpleEndDeviceLoraPhy::StartReceive (Ptr<Packet> packet, double rxPowerDbm,
       {
         NS_LOG_INFO ("Dropping packet because device is in TX state");
         //Need to track the occurances of this half-duplex problem
-        if(!m_halfDuplexCallback.IsNull()){
+        if(!m_halfDuplexCallback.IsNull() && IsOnFrequency (frequencyMHz)){
           m_halfDuplexCallback(packet);
         }
         break;
@@ -154,7 +171,7 @@ SimpleEndDeviceLoraPhy::StartReceive (Ptr<Packet> packet, double rxPowerDbm,
       {
         NS_LOG_INFO ("Dropping packet because device is already in RX state");
 
-        if(!m_rxFailedCallback.IsNull()){
+        if(!m_rxFailedCallback.IsNull() && IsOnFrequency (frequencyMHz)){
           m_rxFailedCallback(packet);
         }
         break;
@@ -248,8 +265,10 @@ SimpleEndDeviceLoraPhy::StartReceive (Ptr<Packet> packet, double rxPowerDbm,
             // Schedule the end of the reception of the packet
             NS_LOG_INFO ("Scheduling reception of a packet. End in " <<
                          duration.GetSeconds () << " seconds");
+            
+            m_currentRxPacket = packet->Copy();
 
-            Simulator::Schedule (duration, &LoraPhy::EndReceive, this, packet,
+            m_currentRxEventId = Simulator::Schedule (duration, &LoraPhy::EndReceive, this, packet,
                                  event);
 
             // Fire the beginning of reception trace source

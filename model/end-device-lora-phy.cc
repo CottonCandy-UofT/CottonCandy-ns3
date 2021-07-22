@@ -157,7 +157,7 @@ EndDeviceLoraPhy::SwitchToTx (double txPowerDbm)
 {
   NS_LOG_FUNCTION_NOARGS ();
 
-  NS_ASSERT (m_state != RX);
+  //NS_ASSERT (m_state != RX);
 
   m_state = TX;
 

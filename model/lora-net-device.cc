@@ -141,7 +141,7 @@ LoraNetDevice::Send (Ptr<Packet> packet)
   if(m_mac!=0){
     m_mac->Send (packet);
   }else{
-    m_cmac->Send(packet);
+    m_cmac->Send(packet,915);
   }
 }
 

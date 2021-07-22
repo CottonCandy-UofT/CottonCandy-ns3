@@ -28,6 +28,7 @@
 #include "ns3/mobility-model.h"
 #include "ns3/node.h"
 #include "ns3/end-device-lora-phy.h"
+#include "ns3/cottoncandy-mac-header.h"
 
 namespace ns3 {
 namespace lorawan {
@@ -60,6 +61,9 @@ public:
                      double frequencyMHz, double txPowerDbm);
 
 private:
+
+  EventId m_currentRxEventId = EventId();
+  Ptr<Packet> m_currentRxPacket;
 };
 
 } /* namespace ns3 */
