@@ -32,6 +32,8 @@
 #include "ns3/cottoncandy-joinack-header.h"
 #include "ns3/cottoncandy-gatewayreq-header.h"
 #include "ns3/lora-tag.h"
+
+#include "ns3/cottoncandy-channel-selector.h"
 #include <array>
 
 namespace ns3 {
@@ -41,6 +43,7 @@ typedef struct{
   CottoncandyAddress parentAddr;
   uint8_t hops;
   double rssi;
+  uint8_t ulChannel;
 } ParentNode;
 
 class LoraPhy;
@@ -218,6 +221,8 @@ public:
 
   void SetFrequency(double freq);
 
+  void EndReceivingSession();
+
   void SetReplyLen(uint8_t len);
 
   void DoSend(Ptr<Packet> packet,double freq);
@@ -243,6 +248,8 @@ protected:
   TracedCallback<uint16_t> m_halfDuplexDetected;
 
   TracedCallback<uint8_t> m_collisionDetected;
+
+  TracedCallback<uint16_t, uint8_t> m_channelSwitched;
 
   /**
    * Trace source that is fired when a packet reaches the MAC layer.
@@ -333,6 +340,8 @@ protected:
   double m_ulFreq = 900;
 
   uint8_t m_channel;
+
+  Ptr<CottoncandyChannelSelector> m_channelSelector;
   
 };
 

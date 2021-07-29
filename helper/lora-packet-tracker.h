@@ -76,6 +76,9 @@ struct CottoncandyStatus
 
    //Number of its own replies delivered to the gateway
    uint32_t numReplyDelivered;
+
+   //For multi-channel design, number of times for channels switching
+   uint32_t numChannelSwitched;
 };
 
 typedef struct CottoncandyPhyPerf
@@ -91,6 +94,7 @@ typedef std::map<Ptr<Packet const>, RetransmissionStatus> RetransmissionData;
 
 typedef std::map<uint16_t, CottoncandyStatus> CottoncandyEdges;
 typedef std::vector<uint8_t> CottoncandyCollisionLocation;
+typedef std::map<uint16_t, std::vector<uint8_t>> CottoncandyChannelSwitch;
 
 
 class LoraPacketTracker
@@ -147,7 +151,10 @@ public:
   void CottoncandyConnectionCallback(uint16_t childAddr, uint16_t parentAddr, Vector childPosition);
   void CottoncandyReceiveReqCallback(uint16_t nodeAddr);
   void CottoncandyReplyDeliveredCallback(uint16_t nodeAddr);
+  void CottoncandyChannelSwitchCallback (uint16_t nodeAddr, uint8_t seqNum);
+
   std::string PrintCottoncandyEdges();
+  std::string PrintCottoncandyChannelStats();
 
   // Packet transmission at an EndDevice
   void MacTransmissionCallback (Ptr<Packet const> packet);
@@ -225,6 +232,7 @@ private:
   CottoncandyEdges m_cottoncandyTopology;
   CottoncandyPhyPerf m_cottoncandyPhyPerf;
   CottoncandyCollisionLocation m_cottoncandyCollisionLoc;
+  CottoncandyChannelSwitch m_cottoncandyChannelSwitch;
 };
 }
 }

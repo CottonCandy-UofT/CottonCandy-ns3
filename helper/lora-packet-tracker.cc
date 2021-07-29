@@ -72,6 +72,42 @@ void LoraPacketTracker::CottoncandyReplyDeliveredCallback(uint16_t nodeAddr){
   }
 }
 
+void
+LoraPacketTracker::CottoncandyChannelSwitchCallback(uint16_t nodeAddr, uint8_t seqNum){
+  auto it = m_cottoncandyChannelSwitch.find(nodeAddr);
+
+  if(it == m_cottoncandyChannelSwitch.end()){
+    //Create the history array
+    std::vector<uint8_t> history;
+    history.push_back(seqNum);
+
+    m_cottoncandyChannelSwitch.insert(std::pair<uint16_t, std::vector<uint8_t>>(nodeAddr,history));
+  }else{
+    //The vector should be non-empty as it is initialized with a value (see above)
+    if(!it->second.empty()){
+      it->second.push_back(seqNum);
+    }
+  }
+}
+
+std::string LoraPacketTracker::PrintCottoncandyChannelStats(){
+  std::stringstream ss;
+  for (auto iter = m_cottoncandyChannelSwitch.begin(); iter != m_cottoncandyChannelSwitch.end(); iter++){
+    ss << std::dec << iter->first;
+
+    std::vector<uint8_t> seqHistory = iter->second;
+
+    for (auto iter2 = seqHistory.begin(); iter2 != seqHistory.end(); iter2++){
+      ss << " " << std::dec << (int)*iter2;
+    }
+
+    ss << "\n";
+  }
+
+  return ss.str();
+}
+
+
 std::string LoraPacketTracker::PrintCottoncandyEdges(){
   //NS_LOG_DEBUG(m_cottoncandyTopology.size());
   std::stringstream ss;
@@ -169,6 +205,7 @@ LoraPacketTracker::CottoncandyTransmissionCallback (Ptr<Packet const> packet, ui
     m_packetTracker.insert (std::pair<Ptr<Packet const>, PacketStatus> (packet, status));
   }
 }
+
 /*
 void
 LoraPacketTracker::CottoncandyPacketReceptionCallback (Ptr<Packet const> packet, uint32_t gwId)

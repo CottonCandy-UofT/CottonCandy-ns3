@@ -83,7 +83,7 @@ ax1.bar(num_reply_delivered.keys(), num_reply_delivered.values())
 ax1.legend(["Number of GatewayReq received", "Number of Replies delivered (at the gateway)"])
 ax1.set_xlabel("Node Address (in decimal)")
 ax1.set_title("Data Gathering Performance")
-ax1.set_ylim([0,total_num_req*1.2])
+ax1.set_ylim([total_num_req*0.3,total_num_req*1.2])
 ax1.set_xlim([0,num_nodes])
 
 

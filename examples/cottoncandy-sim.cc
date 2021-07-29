@@ -222,6 +222,13 @@ main (int argc, char *argv[])
   topologyFile << tracker.PrintCottoncandyEdges() << std::endl;
   topologyFile.close();
 
+  filename = "channelHistory.txt";
+
+  std::ofstream channelHistory;
+  channelHistory.open (filename, std::ofstream::out | std::ofstream::trunc);
+  channelHistory << tracker.PrintCottoncandyChannelStats() << std::endl;
+  channelHistory.close();
+
   std::cout << tracker.GetHalfDuplexPacketCount() << std::endl;
   std::cout << tracker.GetCollisionStats() << std::endl;
 

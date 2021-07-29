@@ -49,6 +49,10 @@ CottoncandyMac::GetTypeId (void)
                     "Trace source indicating a failed RX event",
                     MakeTraceSourceAccessor(&CottoncandyMac::m_collisionDetected),
                     "ns3::TracedValueCallback::uint8_t")
+    .AddTraceSource("ChannelSwitched",
+                    "Trace source indicating a channel switch event",
+                    MakeTraceSourceAccessor(&CottoncandyMac::m_channelSwitched),
+                    "ns3::TracedValueCallback::uint16_t")
     .AddConstructor<CottoncandyMac> ();
   return tid;
 }
@@ -71,6 +75,7 @@ CottoncandyMac::CottoncandyMac ()
   m_params.lowDataRateOptimizationEnabled = 0;
 
   m_numChildren = 0;
+  m_channelSelector = CreateObject<CottoncandyChannelSelector>();
 }
 
 CottoncandyMac::~CottoncandyMac ()
@@ -122,16 +127,15 @@ void CottoncandyMac::ReportHalfDuplex(Ptr<Packet const> packet){
   packetCopy->RemoveHeader(mHdr);
 
   CottoncandyAddress dest = CottoncandyAddress(mHdr.GetDest());
-  CottoncandyAddress src = CottoncandyAddress(mHdr.GetSrc());
+  //CottoncandyAddress src = CottoncandyAddress(mHdr.GetSrc());
 
   // Report the half-duplex problem when the packet is intended for this node and 
   // is a reply message (we are not interested in other messages)
-  if(dest == m_address && mHdr.GetType() == CottoncandyMacHeader::NODE_REPLY){
-    NS_LOG_DEBUG("A packet RX failed due to half duplex");
-    m_halfDuplexDetected(m_address.Get());
-  }else if (src == m_address && mHdr.GetType() == CottoncandyMacHeader::NODE_REPLY){
-    printf("A packet RX canceled by an outgoing TX\n");
-    m_halfDuplexDetected(m_address.Get());
+  if (mHdr.GetType() == CottoncandyMacHeader::NODE_REPLY){
+    if(dest == m_address){
+      NS_LOG_DEBUG("A packet RX failed due to half duplex");
+      m_halfDuplexDetected(m_address.Get());
+    }
   }
 }
 
@@ -242,14 +246,26 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
   CottoncandyAddress src = CottoncandyAddress(mHdr.GetSrc());
   CottoncandyAddress dest = CottoncandyAddress(mHdr.GetDest());
   NS_LOG_INFO("Packet arrived at CottoncandyMac from " << src.Print());
+
+  // Use the tag to know the RSSI strength
+  LoraTag tag;
+  packetCopy->RemovePacketTag(tag);
+  double rxPower = tag.GetReceivePower();
+
+  uint8_t type = mHdr.GetType();
   
   // Check if the message is intended for us
   if (dest != m_address && dest != BROADCAST_ADDR ){
+    if(dest != m_parent.parentAddr && type == CottoncandyMacHeader::MsgType::NODE_REPLY){
+      //This message is not from any sibling nodes nor child nodes
+      NS_LOG_DEBUG("An interfering packet detected with RSSI: " << rxPower);
+      m_channelSelector->AddInterference(rxPower);
+    }
     NS_LOG_INFO("Packet dropped. The packet is for node " << dest.Print());
     return;
   }
 
-  uint8_t type = mHdr.GetType();
+  
 
   switch(type){
     case CottoncandyMacHeader::MsgType::JOIN:
@@ -302,10 +318,6 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
 
       uint8_t hops = ackHdr.GetHops();
       
-      // Use the tag to know the RSSI strength
-      LoraTag tag;
-      packetCopy->RemovePacketTag(tag);
-      double rxPower = tag.GetReceivePower();
       NS_LOG_DEBUG("Possible parent with rssi = " << rxPower << " and hops = " << (int)hops);
 
       // Update the parent candidate based on better hops
@@ -353,8 +365,11 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
       CottoncandyGatewayReqHeader reqHdr;
       packetCopy->RemoveHeader(reqHdr);
 
+      m_seqNum = reqHdr.GetSeqNumber();
+
       //Extract the ul channel
-      m_ulFreq = (reqHdr.GetOption() & 0x3F) * 0.2 + 900;
+      m_parent.ulChannel = (reqHdr.GetOption() & 0x3F);
+      m_ulFreq = m_parent.ulChannel * 0.2 + 900;
       NS_LOG_DEBUG("UL Frequency: " << m_ulFreq);
 
       m_maxBackoff = (double)reqHdr.GetMaxBackoff();
@@ -394,6 +409,7 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
         NS_LOG_DEBUG("Next REQ time: " << nextTime.GetSeconds());
         //Return to the DL channel 3 seconds before the next request
         Simulator::Schedule(nextTime, &CottoncandyMac::SetFrequency, this, COTTONCANDY_DL_FREQUENCY);
+        Simulator::Schedule(nextTime, &CottoncandyMac::EndReceivingSession, this);
 
         //Compensate the next Request time due to the delay
         reqHdr.SetNextReqTime(reqHdr.GetNextReqTime() - (int)m_maxBackoff);
@@ -411,7 +427,7 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
       //Need to receive at a different channel after forwarding gateway requests
       Time airTime = m_phy->GetOnAirTime(packetCopy, m_params);
       Simulator::Schedule(forwardDelay + airTime, &CottoncandyMac::SetFrequency, this, m_channel * 0.2 + 900);
-
+      
       break;
     }
     case CottoncandyMacHeader::MsgType::NODE_REPLY:
@@ -500,6 +516,7 @@ void CottoncandyMac::Send(Ptr<Packet> packet, double freq){
   if(nextTxDelay == Seconds(0)){
     DoSend(packet, freq);
   }else{
+    //Dison: This part is never actually used
     NS_LOG_DEBUG("Need to postphone the TX");
     Simulator::Schedule(nextTxDelay, &CottoncandyMac::DoSend, this, packet, freq);
   }
@@ -511,6 +528,19 @@ void CottoncandyMac::DoSend(Ptr<Packet> packet, double freq){
 
 void CottoncandyMac::SetFrequency(double freq){
   m_phy->GetObject<EndDeviceLoraPhy>()->SetFrequency(freq);
+}
+
+void CottoncandyMac::EndReceivingSession(){
+  if(m_channelSelector->SwitchChannel()){
+    uint8_t newChannel;
+    while(newChannel != m_channel && newChannel != m_parent.ulChannel){
+      newChannel = m_uniformRV->GetInteger(1,63);
+    }
+    
+    m_channel = newChannel;
+    m_channelSwitched(m_address.Get(), m_seqNum);
+    NS_LOG_DEBUG("New channel picked: " << (int)m_channel);
+  }
 }
 
 void CottoncandyMac::Run(){

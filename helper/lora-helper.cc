@@ -146,6 +146,11 @@ NS_LOG_COMPONENT_DEFINE ("LoraHelper");
                                               MakeCallback
                                                  (&LoraPacketTracker::CottoncandyLostBecauseCollisionCallback,
                                                  m_packetTracker));
+              
+              mac->TraceConnectWithoutContext("ChannelSwitched",
+                                              MakeCallback
+                                                  (&LoraPacketTracker::CottoncandyChannelSwitchCallback,
+                                                  m_packetTracker));
             }
             /*
           else if (phyHelper.GetDeviceType () ==
