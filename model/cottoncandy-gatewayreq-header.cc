@@ -97,15 +97,19 @@ uint32_t CottoncandyGatewayReqHeader::Deserialize(Buffer::Iterator start){
   m_seqNum = start.ReadU8();
   m_option = start.ReadU8();
 
+  uint32_t len = 2;
+
   if(m_option & 0x80){
     m_nextReqTime = start.ReadU32();
+    len += 4;
   }
 
   if(m_option & 0x40){
     m_maxBackoff = start.ReadU8();
+    len += 1;
   }
 
-  return 1;
+  return len;
 }
 
 void CottoncandyGatewayReqHeader::Print(std::ostream &os) const{

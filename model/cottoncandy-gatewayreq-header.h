@@ -9,7 +9,7 @@ namespace ns3 {
 namespace lorawan {
 
 /**
- * This class represents the extra header of a Join_ack packet.
+ * This class represents the extra header of a GatewayReq packet.
  */
 class CottoncandyGatewayReqHeader : public Header
 {
