@@ -31,6 +31,8 @@
 #include "ns3/cottoncandy-mac-header.h"
 #include "ns3/cottoncandy-joinack-header.h"
 #include "ns3/cottoncandy-gatewayreq-header.h"
+#include "ns3/cottoncandy-nodereply-header.h"
+#include "ns3/cottoncandy-nodereply-embedded-header.h"
 #include "ns3/lora-tag.h"
 
 #include "ns3/cottoncandy-channel-selector.h"
@@ -55,6 +57,8 @@ static const double MIN_BACKOFF = 0.1;
 static const double MAX_BACKOFF = 3;
 
 static const double COTTONCANDY_DL_FREQUENCY = 900;
+
+static const uint8_t MAX_CONNECTION_ATTEMPTS = 10;
 /**
  * Class representing the LoRaWAN MAC layer.
  *
@@ -233,6 +237,8 @@ public:
 
   void FailedReception(Ptr<Packet const> packet);
 
+  void AggregationTimeout();
+
 protected:
   /**
   * The trace source that is fired when a connection is established with a prent node
@@ -342,6 +348,19 @@ protected:
   uint8_t m_channel;
 
   Ptr<CottoncandyChannelSelector> m_channelSelector;
+
+  uint8_t m_connectionAttempts = 0;
+
+  Ptr<Packet> m_aggregatedReply;
+
+  bool m_aggregating = false;
+
+  uint32_t m_aggregationSize;
+
+  //placeholder for future settings
+  bool m_aggregationEnable = true;
+  bool m_staticChannelEnable = true;
+  bool m_multiChannelEnable = true;
   
 };
 

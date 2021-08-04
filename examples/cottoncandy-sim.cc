@@ -59,18 +59,24 @@ main (int argc, char *argv[])
   std::string positionAlloc = "grid";
   int simulationTime = 255;
   uint8_t replyLen = 2;
+  
+  double gridDelta = 2000;
+  double gridWidth = 10;
 
   /**
    * Use commandline arguments to specify network paramters
    */ 
   CommandLine cmd;
  
-  cmd.AddValue("radius", "Radius of the network in meters (for uniform disk allocation only)",
+  cmd.AddValue("radius", "Radius of the network in meters (for uniform disk allocation)",
               radius);
   cmd.AddValue("positionModel", "grid or disk", positionAlloc); 
   cmd.AddValue("numNodes", "Number of nodes (exclude the gateway)", numNodes);
   cmd.AddValue("simulationTime", "Simulation time in hours", simulationTime);
   cmd.AddValue("replyLen", "Length of the NodeReply payload", replyLen);
+
+  cmd.AddValue("gridDelta", "Vertical/Horizontal distance between two adjacent nodes in a grid",
+              gridDelta);
 
   cmd.Parse(argc, argv);
 
@@ -111,11 +117,15 @@ main (int argc, char *argv[])
   else if (positionAlloc == "grid")
   {
   NS_LOG_INFO("Use default grid allocation with radius=" << radius);
+
+  double minX = - gridWidth / 2 * gridDelta + gridDelta/2;
+  double minY = minX;
+
   mobility.SetPositionAllocator ("ns3::GridPositionAllocator",
-                                  "MinX", DoubleValue (-9500.0),
-                                  "MinY", DoubleValue (-9500.0),
-                                  "DeltaX", DoubleValue (2000.0),
-                                  "DeltaY", DoubleValue (2000.0),
+                                  "MinX", DoubleValue (-9500),
+                                  "MinY", DoubleValue (-9500),
+                                  "DeltaX", DoubleValue (gridDelta),
+                                  "DeltaY", DoubleValue (gridDelta),
                                   "GridWidth", UintegerValue (10),
                                   "LayoutType", StringValue ("RowFirst"));
   }

@@ -375,14 +375,20 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
       m_maxBackoff = (double)reqHdr.GetMaxBackoff();
 
       // Construct a NodeReply packet and send back
-      // We do not concern about the extra header (i.e. sequence number & datalen)
-      // So we just create a zero-filled payload and send
-      Ptr<Packet> replyPacket = Create<Packet>(2 + m_replyLen);
+      // We just create a zero-filled payload and send
+      Ptr<Packet> replyPacket = Create<Packet>(m_replyLen);
+
+      CottoncandyNodeReplyHeader replyHdr;
+      replyHdr.SetSeqNum(m_seqNum);
+      replyHdr.SetAggregated(false);
+      replyHdr.SetDataLen(m_replyLen);
+      
+      replyPacket->AddHeader(replyHdr);
       
       CottoncandyMacHeader macHdr;
       macHdr.SetType(CottoncandyMacHeader::MsgType::NODE_REPLY);
       macHdr.SetSrc(m_address.Get());
-      macHdr.SetDest(src.Get());
+      macHdr.SetDest(m_parent.parentAddr.Get());
 
       replyPacket->AddHeader(macHdr);
 
@@ -399,7 +405,9 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
       //Re-add the headers with modified info
       mHdr.SetSrc(m_address.Get());
 
-      reqHdr.SetMaxBackoff(m_numChildren * 3);
+
+      uint8_t maxChildrenBackoff = m_numChildren * 3;
+      reqHdr.SetMaxBackoff(maxChildrenBackoff);
       reqHdr.SetOption(m_channel | 0xC0);
 
       //Extract the nextTime
@@ -428,30 +436,91 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
       Time airTime = m_phy->GetOnAirTime(packetCopy, m_params);
       Simulator::Schedule(forwardDelay + airTime, &CottoncandyMac::SetFrequency, this, m_channel * 0.2 + 900);
       
+      if(m_aggregationEnable){
+        //Try to aggregate replies from its direct descendents
+        Time aggregationTimeout = forwardDelay + airTime + Seconds(maxChildrenBackoff);
+        Simulator::Schedule(aggregationTimeout, &CottoncandyMac::AggregationTimeout, this);
+        m_aggregatedReply = Create<Packet>();
+
+        m_aggregating = true; 
+        //should be true after the forward delay, but it does not matter (no replies will arrive before)
+      }
+
       break;
     }
     case CottoncandyMacHeader::MsgType::NODE_REPLY:
     {
+      CottoncandyNodeReplyHeader replyHdr;
+      packetCopy->RemoveHeader(replyHdr);
+
       if(m_address.Get() & CottoncandyAddress::GATEWAY_MASK){
         //Record the successful reception
         NS_LOG_DEBUG("NodeReply arrived at the gateway. Src = " << src.Print());
-        m_replyDelivered(src.Get());
+
+        if(m_aggregationEnable && replyHdr.GetAggregated()){
+          while(packetCopy->GetSize() > 0){
+            CottoncandyNodeReplyEmbeddedHeader miniHdr;
+
+            packetCopy->RemoveHeader(miniHdr);
+
+            m_replyDelivered(miniHdr.GetSrc());
+
+            packetCopy->RemoveAtStart(miniHdr.GetDataLen());
+          }
+        }else{
+          m_replyDelivered(src.Get());
+        }
         break;
       }
-      
-      //Forward the packet by modifying the packet dest field
-      mHdr.SetDest(m_parent.parentAddr.Get());
 
-      packetCopy->AddHeader(mHdr);
+      //Get the payload size + the mini header
+      uint32_t addedSize = packetCopy->GetSize() + 3;
 
-      Time delay = Seconds(m_uniformRV->GetValue(MIN_BACKOFF, m_maxBackoff));
+      if(m_aggregating && m_aggregatedReply->GetSize() + addedSize <= 127){
+        /**
+         * If we currently accept aggregating packets, which implies
+         * 1. Clearly the aggregation is enabled in the simulation
+         * 2. Only packets from direct descendents will be aggregated
+         * 3. Those packets from direct descendents are not aggregated yet
+         */ 
 
-      // Send the packet after the random backoff
-      Simulator::Schedule(delay,&CottoncandyMac::Send, this, packetCopy, m_ulFreq);
+          //Check whether this packet can be aggregated
+          //Total payload (including mini headers, but exluding the NodeReply header) size < 127 bytes
 
-      Time airTime = m_phy->GetOnAirTime(packetCopy, m_params);
-      //Simulator::Schedule(delay + airTime, &CottoncandyMac::SetFrequency, this, m_channel * 0.2 + 900);
+          //Create the mini header
+          CottoncandyNodeReplyEmbeddedHeader miniHdr;
+          miniHdr.SetSrc(src.Get());
+          miniHdr.SetDataLen(replyHdr.GetDataLen());
 
+          //Append the mini header
+          packetCopy->AddHeader(miniHdr);
+
+          //Concatenate the packets
+          m_aggregatedReply->AddAtEnd(packetCopy);
+
+          NS_LOG_DEBUG("A reply packet is successfully aggregated");
+        
+      }else{
+        //If the packet is not for aggregation, or it does not fit in the current aggregation packet
+        //Just send it
+        /**
+         * TODO: We need to implement a better rule here
+         */ 
+        packetCopy->AddHeader(replyHdr);
+
+        //Forward the packet by modifying the packet dest field
+        mHdr.SetDest(m_parent.parentAddr.Get());
+
+        packetCopy->AddHeader(mHdr);
+
+        Time delay = Seconds(m_uniformRV->GetValue(MIN_BACKOFF, m_maxBackoff));
+
+        // Send the packet after the random backoff
+        Simulator::Schedule(delay,&CottoncandyMac::Send, this, packetCopy, m_ulFreq);
+
+        //Time airTime = m_phy->GetOnAirTime(packetCopy, m_params);
+        //Simulator::Schedule(delay + airTime, &CottoncandyMac::SetFrequency, this, m_channel * 0.2 + 900);
+      }
       break;
 
     }
@@ -460,6 +529,40 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
       NS_LOG_INFO("Unknown message received");
     }
   
+  }
+}
+
+void CottoncandyMac::AggregationTimeout(){
+  m_aggregating = false;
+
+  uint32_t size = m_aggregatedReply->GetSize();
+
+  if(size > 0){
+    Ptr<Packet> packetCopy = m_aggregatedReply->Copy();
+
+    CottoncandyNodeReplyHeader replyHdr;
+    replyHdr.SetSeqNum(m_seqNum);
+    replyHdr.SetDataLen(packetCopy->GetSize());
+    replyHdr.SetAggregated(true);
+
+    CottoncandyMacHeader mHdr;
+    mHdr.SetType(CottoncandyMacHeader::NODE_REPLY);
+    mHdr.SetDest(m_parent.parentAddr.Get());
+    mHdr.SetSrc(m_address.Get());
+
+    packetCopy->AddHeader(replyHdr);
+    packetCopy->AddHeader(mHdr);
+
+    //Time delay = Seconds(m_uniformRV->GetValue(MIN_BACKOFF, m_maxBackoff));
+
+    // Send the packet after the random backoff
+    //Simulator::Schedule(delay,&CottoncandyMac::Send, this, packetCopy, m_ulFreq);
+    Send(packetCopy, m_ulFreq);
+
+    //Clean up
+    m_aggregatedReply->RemoveAtEnd(size);
+
+    NS_ASSERT(m_aggregatedReply->GetSize() == 0);
   }
 }
 
@@ -620,11 +723,19 @@ void CottoncandyMac::DiscoveryTimeout(){
 
     m_channel = (uint8_t)m_uniformRV->GetInteger(1,63);
     
-
+    m_connectionAttempts = 0;
   }else{
     NS_LOG_DEBUG("Restart the discovery process");
 
     Time delay = Seconds(m_uniformRV->GetValue(0,5));
+
+    m_connectionAttempts += 1;
+
+    if(m_connectionAttempts >= MAX_CONNECTION_ATTEMPTS){
+      NS_LOG_DEBUG("Connection fails for " << m_connectionAttempts << " times. Put node to sleep");
+      m_connectionAttempts = 0;
+      return;
+    }
 
     // Send out the join beacon
     Simulator::Schedule(delay, &CottoncandyMac::Send, this, m_joinBeacon, COTTONCANDY_DL_FREQUENCY);
