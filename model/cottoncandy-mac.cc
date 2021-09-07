@@ -245,7 +245,7 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
 
   CottoncandyAddress src = CottoncandyAddress(mHdr.GetSrc());
   CottoncandyAddress dest = CottoncandyAddress(mHdr.GetDest());
-  NS_LOG_INFO("Packet arrived at CottoncandyMac from " << src.Print());
+  NS_LOG_DEBUG("Packet arrived at CottoncandyMac from " << src.Get());
 
   // Use the tag to know the RSSI strength
   LoraTag tag;
@@ -598,7 +598,8 @@ void CottoncandyMac::SendGatewayRequest(){
     m_seqNum ++;
     Simulator::Schedule(Seconds((double)m_reqInterval), &CottoncandyMac::SendGatewayRequest, this);
   }else{
-    //Stop after we have sent 254 requests since the seqNumber will overflow
+    //reset the sequence number
+    m_seqNum = 1;
   }
   m_gatewayReqReceived(m_address.Get());
   m_replyDelivered(m_address.Get());
@@ -635,8 +636,10 @@ void CottoncandyMac::SetFrequency(double freq){
 
 void CottoncandyMac::EndReceivingSession(){
   if(m_channelSelector->SwitchChannel()){
-    uint8_t newChannel;
-    while(newChannel != m_channel && newChannel != m_parent.ulChannel){
+    uint8_t newChannel = m_channel;
+
+    //Try to get a new channel that is not as same as the existing channel nor the parent channel
+    while(newChannel == m_channel || newChannel == m_parent.ulChannel){
       newChannel = m_uniformRV->GetInteger(1,63);
     }
     
@@ -719,14 +722,19 @@ void CottoncandyMac::DiscoveryTimeout(){
 
     NS_LOG_DEBUG("Join Successful. Parent Node is " << m_parent.parentAddr.Print());
 
+    //Callback to log the connection
     m_connectionEstablished(m_address.Get(), m_parent.parentAddr.Get(), m_phy->GetMobility()->GetPosition());
 
+    //Select a random channel to use
     m_channel = (uint8_t)m_uniformRV->GetInteger(1,63);
     
+    //Reset the connection attempts
     m_connectionAttempts = 0;
   }else{
     NS_LOG_DEBUG("Restart the discovery process");
 
+    //Restarting the discovery immediately can lead to recurring collisions (i.e. the JOIN messages from
+    //two nodes always collide)
     Time delay = Seconds(m_uniformRV->GetValue(0,5));
 
     m_connectionAttempts += 1;
