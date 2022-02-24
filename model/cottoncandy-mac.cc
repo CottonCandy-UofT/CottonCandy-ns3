@@ -245,7 +245,7 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
 
   CottoncandyAddress src = CottoncandyAddress(mHdr.GetSrc());
   CottoncandyAddress dest = CottoncandyAddress(mHdr.GetDest());
-  NS_LOG_DEBUG("Packet arrived at CottoncandyMac from " << src.Get());
+  //NS_LOG_DEBUG("Packet arrived at CottoncandyMac from " << src.Get());
 
   // Use the tag to know the RSSI strength
   LoraTag tag;
@@ -258,7 +258,7 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
   if (dest != m_address && dest != BROADCAST_ADDR ){
     if(dest != m_parent.parentAddr && type == CottoncandyMacHeader::MsgType::NODE_REPLY){
       //This message is not from any sibling nodes nor child nodes
-      NS_LOG_DEBUG("An interfering packet detected with RSSI: " << rxPower);
+      std::cout << "An interfering packet detected with RSSI: " << rxPower;
       m_channelSelector->AddInterference(rxPower);
     }
     NS_LOG_INFO("Packet dropped. The packet is for node " << dest.Print());
@@ -277,6 +277,12 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
         NS_LOG_DEBUG("Unable to accept child node any more " << (int)m_parent.hops << " " << (int)m_numChildren);
         break;
       }
+
+      // If the message from the child node does not have enough RSSI, also do not reply
+      //if(rxPower < -113){
+      //  NS_LOG_DEBUG("Unable to accept child node with low RX power");
+      //  break;
+      //}
 
       // Construct a JOIN_ACK packet and send back
       Ptr<Packet> packetToSend = Create<Packet>();
@@ -299,7 +305,7 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
       Time delay = Seconds(m_uniformRV->GetValue(MIN_BACKOFF, MAX_BACKOFF));
 
       // Send the packet after the random backoff
-      Simulator::Schedule(delay,&CottoncandyMac::Send, this, packetToSend, COTTONCANDY_DL_FREQUENCY);
+      Simulator::Schedule(delay,&CottoncandyMac::Send, this, packetToSend, COTTONCANDY_DL_FREQUENCY, 17);
 
       NS_LOG_DEBUG("JOIN_ACK message will be sent to node " << macHdr.GetDest());
       
@@ -323,7 +329,7 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
       // Update the parent candidate based on better hops
       if(bestParentCandidate.hops != 255){
 
-        if (rxPower > -120){
+        if (rxPower > -113){
           if(hops < bestParentCandidate.hops || (hops == bestParentCandidate.hops && 
                   rxPower > bestParentCandidate.rssi)){
             
@@ -396,7 +402,7 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
 
       NS_LOG_DEBUG("Send NodeReply to the parent");
       // Send the packet after the random backoff
-      Simulator::Schedule(delay,&CottoncandyMac::Send, this, replyPacket, m_ulFreq);
+      Simulator::Schedule(delay,&CottoncandyMac::Send, this, replyPacket, m_ulFreq, m_txPower);
 
       if(m_numChildren == 0){
         break;
@@ -430,7 +436,7 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
       Time forwardDelay = Seconds(m_maxBackoff) + Seconds(m_uniformRV->GetValue(MIN_BACKOFF, m_maxBackoff));
       
       NS_LOG_DEBUG("Forward GatewayReq to the children");
-      Simulator::Schedule(forwardDelay,&CottoncandyMac::Send, this, packetCopy, COTTONCANDY_DL_FREQUENCY);
+      Simulator::Schedule(forwardDelay,&CottoncandyMac::Send, this, packetCopy, COTTONCANDY_DL_FREQUENCY, 17);
 
       //Need to receive at a different channel after forwarding gateway requests
       Time airTime = m_phy->GetOnAirTime(packetCopy, m_params);
@@ -516,10 +522,11 @@ void CottoncandyMac::Receive(Ptr<Packet const> packet)
         Time delay = Seconds(m_uniformRV->GetValue(MIN_BACKOFF, m_maxBackoff));
 
         // Send the packet after the random backoff
-        Simulator::Schedule(delay,&CottoncandyMac::Send, this, packetCopy, m_ulFreq);
+        //Simulator::Schedule(delay,&CottoncandyMac::Send, this, packetCopy, m_ulFreq, m_txPower);
+        Send(packetCopy, m_ulFreq, m_txPower);
 
-        //Time airTime = m_phy->GetOnAirTime(packetCopy, m_params);
-        //Simulator::Schedule(delay + airTime, &CottoncandyMac::SetFrequency, this, m_channel * 0.2 + 900);
+        Time airTime = m_phy->GetOnAirTime(packetCopy, m_params);
+        Simulator::Schedule(airTime, &CottoncandyMac::SetFrequency, this, m_channel * 0.2 + 900);
       }
       break;
 
@@ -557,7 +564,7 @@ void CottoncandyMac::AggregationTimeout(){
 
     // Send the packet after the random backoff
     //Simulator::Schedule(delay,&CottoncandyMac::Send, this, packetCopy, m_ulFreq);
-    Send(packetCopy, m_ulFreq);
+    Send(packetCopy, m_ulFreq, m_txPower);
 
     //Clean up
     m_aggregatedReply->RemoveAtEnd(size);
@@ -592,7 +599,7 @@ void CottoncandyMac::SendGatewayRequest(){
   packet->AddHeader(reqHdr);
   packet->AddHeader(macHdr);
 
-  Send(packet, COTTONCANDY_DL_FREQUENCY);
+  Send(packet, COTTONCANDY_DL_FREQUENCY, 17);
 
   if(m_seqNum != 255){
     m_seqNum ++;
@@ -606,7 +613,7 @@ void CottoncandyMac::SendGatewayRequest(){
   
 }
 
-void CottoncandyMac::Send(Ptr<Packet> packet, double freq){
+void CottoncandyMac::Send(Ptr<Packet> packet, double freq, double txPower){
 
   // Should only have 1 channel
   std::vector<Ptr<LogicalLoraChannel> > logicalChannels;
@@ -618,16 +625,16 @@ void CottoncandyMac::Send(Ptr<Packet> packet, double freq){
   Time nextTxDelay = m_channelHelper.GetWaitingTime(channel);
 
   if(nextTxDelay == Seconds(0)){
-    DoSend(packet, freq);
+    DoSend(packet, freq, txPower);
   }else{
     //Dison: This part is never actually used
     NS_LOG_DEBUG("Need to postphone the TX");
-    Simulator::Schedule(nextTxDelay, &CottoncandyMac::DoSend, this, packet, freq);
+    Simulator::Schedule(nextTxDelay, &CottoncandyMac::DoSend, this, packet, freq, txPower);
   }
 }
 
-void CottoncandyMac::DoSend(Ptr<Packet> packet, double freq){
-  m_phy->Send(packet, m_params, freq, 17);
+void CottoncandyMac::DoSend(Ptr<Packet> packet, double freq, double txPower){
+  m_phy->Send(packet, m_params, freq, txPower);
 }
 
 void CottoncandyMac::SetFrequency(double freq){
@@ -679,7 +686,7 @@ void CottoncandyMac::Run(){
     m_joinBeacon = Create<Packet>();
     m_joinBeacon->AddHeader(macHdr);
 
-    Send(m_joinBeacon, COTTONCANDY_DL_FREQUENCY);
+    Send(m_joinBeacon, COTTONCANDY_DL_FREQUENCY, m_txPower);
 
     // Synchronous sending is used in Cottoncandy
     Time airTime = m_phy->GetOnAirTime(m_joinBeacon, m_params);
@@ -718,7 +725,7 @@ void CottoncandyMac::DiscoveryTimeout(){
     Ptr<Packet> cfmPacket = Create<Packet>();
     cfmPacket->AddHeader(macHdr);
 
-    Send(cfmPacket, COTTONCANDY_DL_FREQUENCY);
+    Send(cfmPacket, COTTONCANDY_DL_FREQUENCY, m_txPower);
 
     NS_LOG_DEBUG("Join Successful. Parent Node is " << m_parent.parentAddr.Print());
 
@@ -730,14 +737,23 @@ void CottoncandyMac::DiscoveryTimeout(){
     
     //Reset the connection attempts
     m_connectionAttempts = 0;
+
+    std::cout << m_address.Get() << " Final tx power set to "  << m_txPower << std::endl;
   }else{
     NS_LOG_DEBUG("Restart the discovery process");
 
     //Restarting the discovery immediately can lead to recurring collisions (i.e. the JOIN messages from
     //two nodes always collide)
-    Time delay = Seconds(m_uniformRV->GetValue(0,5));
+    Time delay = Seconds(m_uniformRV->GetValue(30,60));
 
-    m_connectionAttempts += 1;
+    
+
+    //Increment the tx power
+    if(m_txPower < 17){
+      m_txPower += 1;
+    }else{
+      m_connectionAttempts += 1;
+    }
 
     if(m_connectionAttempts >= MAX_CONNECTION_ATTEMPTS){
       NS_LOG_DEBUG("Connection fails for " << m_connectionAttempts << " times. Put node to sleep");
@@ -746,7 +762,7 @@ void CottoncandyMac::DiscoveryTimeout(){
     }
 
     // Send out the join beacon
-    Simulator::Schedule(delay, &CottoncandyMac::Send, this, m_joinBeacon, COTTONCANDY_DL_FREQUENCY);
+    Simulator::Schedule(delay, &CottoncandyMac::Send, this, m_joinBeacon, COTTONCANDY_DL_FREQUENCY, m_txPower);
 
     // Synchronous sending is used in Cottoncandy
     Time airTime = m_phy->GetOnAirTime(m_joinBeacon, m_params);

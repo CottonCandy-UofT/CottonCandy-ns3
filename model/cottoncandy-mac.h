@@ -95,7 +95,7 @@ public:
    *
    * \param packet The packet to send.
    */
-  virtual void Send (Ptr<Packet> packet, double freq);
+  virtual void Send (Ptr<Packet> packet, double freq, double txPower);
 
   /**
    * Receive a packet from the lower layer.
@@ -229,7 +229,7 @@ public:
 
   void SetReplyLen(uint8_t len);
 
-  void DoSend(Ptr<Packet> packet,double freq);
+  void DoSend(Ptr<Packet> packet,double freq, double txPower);
 
   void SendGatewayRequest();
 
@@ -333,7 +333,8 @@ protected:
    */
   Ptr<UniformRandomVariable> m_uniformRV;
 
-  Time m_discoveryTimeout = Seconds(10);
+  //5 seconds should be sufficient for receiving a reply
+  Time m_discoveryTimeout = Seconds(5);
 
   LoraTxParameters m_params;
 
@@ -361,6 +362,8 @@ protected:
   bool m_aggregationEnable = true;
   bool m_staticChannelEnable = true;
   bool m_multiChannelEnable = true;
+
+  double m_txPower = 2;
   
 };
 

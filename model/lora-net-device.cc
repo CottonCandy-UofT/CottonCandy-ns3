@@ -141,7 +141,9 @@ LoraNetDevice::Send (Ptr<Packet> packet)
   if(m_mac!=0){
     m_mac->Send (packet);
   }else{
-    m_cmac->Send(packet,915);
+    //This is never called since all our sendings is done in the Mac layer
+    printf("ggggggg\n");
+    m_cmac->Send(packet,915,17);
   }
 }
 

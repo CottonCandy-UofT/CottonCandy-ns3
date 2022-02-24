@@ -63,6 +63,9 @@ main (int argc, char *argv[])
   double gridDelta = 2000;
   double gridWidth = 10;
 
+  double gatewayX = -3000;
+  double gatewayY = -3000;
+
   /**
    * Use commandline arguments to specify network paramters
    */ 
@@ -111,8 +114,8 @@ main (int argc, char *argv[])
     // Use random unifrom disk distribution
     mobility.SetPositionAllocator ("ns3::UniformDiscPositionAllocator", 
                                  "rho", DoubleValue (radius),
-                                 "X", DoubleValue (0.0), 
-                                 "Y", DoubleValue (0.0));
+                                 "X", DoubleValue (gatewayX), 
+                                 "Y", DoubleValue (gatewayY));
   }
   else if (positionAlloc == "grid")
   {
@@ -175,7 +178,7 @@ main (int argc, char *argv[])
 
   Ptr<ListPositionAllocator> allocator = CreateObject<ListPositionAllocator> ();
   // Make it so that nodes are at a certain height > 0
-  allocator->Add (Vector (0.0, 0.0, 1.0));
+  allocator->Add (Vector (gatewayX, gatewayY, 1.0));
   mobility.SetPositionAllocator (allocator);
   mobility.Install (gateways);
 

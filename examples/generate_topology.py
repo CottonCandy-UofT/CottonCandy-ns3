@@ -38,13 +38,14 @@ with open(file_path) as fp:
         node = int(data[0],16)
         pos = (float(data[1]),float(data[2]))
         edge = (node, int(data[3],16))
+        #print(edge)
 
         nodes_location[node] = pos
 
         num_req = int(data[4])
         num_reply = int(data[5])
 
-        if not node & 0x8000:
+        if not (node & 0x8000):
           edge_list.append(edge)
           color_list.append('green')
 
@@ -62,7 +63,7 @@ G.add_edges_from(edge_list)
 fig = plt.figure(figsize=(8,6))
 ax = fig.add_subplot(1, 1, 1)
 
-nx.draw_networkx(G, nodes_location, node_color=color_list,with_labels=False)
+nx.draw_networkx(G, nodes_location, node_color=color_list,with_labels=True)
 #ax.grid('on')
 
 #plt.savefig("my_ns3_topology.png")
@@ -84,7 +85,7 @@ ax1.legend(["Number of GatewayReq received", "Number of Replies delivered (at th
 ax1.set_xlabel("Node Address (in decimal)")
 ax1.set_title("Data Gathering Performance")
 ax1.set_ylim([total_num_req*0.3,total_num_req*1.2])
-ax1.set_xlim([0,num_nodes])
+ax1.set_xlim([0,100])
 
 
 #Plot the reference line
