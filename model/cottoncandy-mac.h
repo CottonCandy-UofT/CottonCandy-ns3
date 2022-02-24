@@ -31,6 +31,7 @@
 #include "ns3/cottoncandy-mac-header.h"
 #include "ns3/cottoncandy-joinack-header.h"
 #include "ns3/cottoncandy-gatewayreq-header.h"
+#include "ns3/cottoncandy-seekjoin-header.h"
 #include "ns3/cottoncandy-nodereply-header.h"
 #include "ns3/cottoncandy-nodereply-embedded-header.h"
 #include "ns3/lora-tag.h"
@@ -41,10 +42,41 @@
 namespace ns3 {
 namespace lorawan {
 
+
+enum CottonCandyState{
+  DISCONNECTED,
+  CONNECTED,
+  OBSERVE,
+  SEEK_JOIN,
+  LISTEN_TO_PARENT,
+  TALK_TO_CHILDREN,
+  HIBERNATE,
+  ACCEPT_JOIN
+};
+
+static const double MAX_BACKOFF_JOIN = 1;
+
+static const Time JOIN_ACK_TIMEOUT = Seconds(1);
+
+static const Time SEEK_JOIN_DURATION = Seconds(60);
+static const Time ACCEPT_JOIN_DURATION = Seconds(5);
+static const Time SHORT_HIBERNATION_DURATION = Seconds(10);
+
+static const Time DCP_TIMEOUT = Seconds(600);
+
+static const uint8_t PUBLIC_CHANNEL = 64;
+static const double CHANNEL_SIZE = 0.2;
+static const double CHANNEL_START_FREQ = 902.0;
+static const uint8_t NUM_CHANNELS = 64;
+static const uint8_t INVALID_CHANNEL = 255;
+
+static const uint8_t MAX_EMPTY_ROUNDS = 5;
+
 typedef struct{
   CottoncandyAddress parentAddr;
   uint8_t hops;
-  double rssi;
+  uint8_t numChildren;
+  int linkQuality;
   uint8_t ulChannel;
 } ParentNode;
 
@@ -53,12 +85,23 @@ class LoraPhy;
 static const CottoncandyAddress BROADCAST_ADDR = CottoncandyAddress(0xff);
 
 static const double MIN_BACKOFF = 0.1;
-
 static const double MAX_BACKOFF = 3;
 
-static const double COTTONCANDY_DL_FREQUENCY = 900;
+static const uint8_t MAX_INITIAL_JOIN_ATTEMPTS = 10;
+static const uint8_t MAX_SELF_HEALING_ATTEMPTS = 3;
 
-static const uint8_t MAX_CONNECTION_ATTEMPTS = 10;
+//Note: this corresponds to the min/max value in the CottonCandy library 
+static const uint8_t MIN_TX_POWER = 9;
+static const uint8_t MAX_TX_POWER = 17;
+
+static const int MIN_DISCOVERY_DELAY = 5;
+static const int MAX_DISCOVERY_DELAY = 120;
+
+static const int MAX_JOIN_ACK_BACKOFF_TIME = 1;
+
+static const int MAX_NUM_CHILDREN = 3;
+static const int MAX_NUM_CANDIDATE_PARENT = 2;
+
 /**
  * Class representing the LoRaWAN MAC layer.
  *
@@ -70,6 +113,8 @@ class CottoncandyMac : public Object
 {
 public:
   static TypeId GetTypeId (void);
+
+  static double GetChannelFreq(uint8_t channel);
 
   CottoncandyMac ();
   virtual ~CottoncandyMac ();
@@ -223,21 +268,36 @@ public:
 
   void SetDeviceAddress(CottoncandyAddress addr);
 
-  void SetFrequency(double freq);
-
-  void EndReceivingSession();
+  void SetChannel(uint8_t channel);
 
   void SetReplyLen(uint8_t len);
 
   void DoSend(Ptr<Packet> packet,double freq, double txPower);
 
-  void SendGatewayRequest();
+  
 
   void ReportHalfDuplex(Ptr<Packet const> packet);
 
   void FailedReception(Ptr<Packet const> packet);
 
-  void AggregationTimeout();
+  void EnterObservePhase();
+  void EndObservePhase();
+
+  void EnterJoinPhase();
+  void EndJoinPhase();
+
+  void EnterAcceptJoinPhase();
+  
+  void EnterSeekJoinPhase();
+  void EndSeekJoinPhase();
+
+  void EnterDataCollectionPhase();
+  void EndDataCollectionPhase();
+
+  void TalkToChildren();
+  void ReceiveTimeout();
+
+  void Join();
 
 protected:
   /**
@@ -315,36 +375,42 @@ protected:
    */
   ReplyDataRateMatrix m_replyDataRateMatrix;
 
+  int m_state = DISCONNECTED;
+  /**
+   * @brief Basic topology information
+   * 
+   */
+  CottoncandyAddress m_address;   
   ParentNode m_parent;
-
   uint8_t m_numChildren;
 
+  std::map<CottoncandyAddress, Time> pendingChildren;
+  std::vector<CottoncandyAddress> childList;
+
+  uint8_t m_numOutgoingJoinAck = 0;
+
+  /**
+   * @brief Configuration of join
+   * 
+   */
+  uint8_t m_maxJoinAttempts = MAX_INITIAL_JOIN_ATTEMPTS;
   ParentNode bestParentCandidate;
-
   Ptr<Packet> m_joinBeacon;
-
-  CottoncandyAddress m_address;
 
   uint8_t m_replyLen = 0;
 
-    /**
+
+  /**
    * An uniform random variable, used by the Shuffle method to randomly reorder
    * the channel list.
    */
   Ptr<UniformRandomVariable> m_uniformRV;
 
-  //5 seconds should be sufficient for receiving a reply
-  Time m_discoveryTimeout = Seconds(5);
-
   LoraTxParameters m_params;
 
-  uint8_t m_seqNum = 1; 
-
-  uint32_t m_reqInterval = 3600;
+  uint32_t m_dutyCycleInterval = 3600;
 
   double m_maxBackoff = MAX_BACKOFF;
-
-  double m_ulFreq = 900;
 
   uint8_t m_channel;
 
@@ -363,7 +429,26 @@ protected:
   bool m_staticChannelEnable = true;
   bool m_multiChannelEnable = true;
 
-  double m_txPower = 2;
+  double m_txPower = MIN_TX_POWER; 
+
+  //Absolute time when the next Accept_Join phase starts
+  Time m_nextAcceptJoin;
+
+  std::list<Ptr<Packet>> m_PendingData = std::list<Ptr<Packet>>();
+
+  EventId m_endDCPId;
+  EventId m_endObserveId;
+
+  uint8_t m_emptyRounds = 0;
+
+  std::vector<int> m_interfererChannels = std::vector<int>(NUM_CHANNELS);
+  
+  std::map<CottoncandyAddress, uint8_t> m_candidateParents = std::map<CottoncandyAddress, uint8_t>();
+
+  ParentNode m_currentCandidate;
+
+  bool m_nextDutyCycleKnown = false;
+  bool m_channelConflict = true;
   
 };
 

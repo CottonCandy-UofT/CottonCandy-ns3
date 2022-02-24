@@ -66,18 +66,18 @@ TypeId CottoncandyMacHeader::GetInstanceTypeId(void) const{
 void CottoncandyMacHeader::Serialize(Buffer::Iterator start) const{
   NS_LOG_FUNCTION_NOARGS();
 
+  start.WriteU16(m_destAddr);  
   start.WriteU8(m_mtype);
   start.WriteU16(m_srcAddr);
-  start.WriteU16(m_destAddr);
 }
 
 
 uint32_t CottoncandyMacHeader::Deserialize(Buffer::Iterator start){
   NS_LOG_FUNCTION_NOARGS();
 
+  m_destAddr = start.ReadU16();
   m_mtype = start.ReadU8();
   m_srcAddr = start.ReadU16();
-  m_destAddr = start.ReadU16();
 
   return 5;
 }

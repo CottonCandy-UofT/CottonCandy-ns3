@@ -21,10 +21,11 @@ nodes_location = {}
 edge_list = []
 color_list = []
 
-total_num_req = 0
 
 num_req_received = {}
 num_reply_delivered = {}
+
+num_rounds = 500
 
 gateway_node = 0
 
@@ -54,7 +55,6 @@ with open(file_path) as fp:
         else:
           color_list.append('red')
           gateway_node = node
-          total_num_req = int(data[4])
 
 num_nodes = len(num_req_received)
 G.add_nodes_from(nodes_location.keys())
@@ -70,22 +70,22 @@ nx.draw_networkx(G, nodes_location, node_color=color_list,with_labels=True)
 
 #print(G.degree())
 
-total_num_req_recv = sum(num_req_received.values())
-total_num_reply_deliver = sum(num_reply_delivered.values())
+#total_num_req_recv = sum(num_req_received.values())
+#total_num_reply_deliver = sum(num_reply_delivered.values())
 
-print("Req vs Reply: ", (total_num_req_recv, total_num_reply_deliver))
+#print("Req vs Reply: ", (total_num_req_recv, total_num_reply_deliver))
 
-reference_line = [total_num_req] * num_nodes
+reference_line = [num_rounds] * num_nodes
 
 
 fig1, ax1 = plt.subplots(1,1, sharex=True)
-ax1.bar(num_req_received.keys(), num_req_received.values())
+#ax1.bar(num_req_received.keys(), num_req_received.values())
 ax1.bar(num_reply_delivered.keys(), num_reply_delivered.values())
-ax1.legend(["Number of GatewayReq received", "Number of Replies delivered (at the gateway)"])
+ax1.legend(["Number of Replies delivered (at the gateway)"])
 ax1.set_xlabel("Node Address (in decimal)")
 ax1.set_title("Data Gathering Performance")
-ax1.set_ylim([total_num_req*0.3,total_num_req*1.2])
-ax1.set_xlim([0,100])
+ax1.set_ylim([num_rounds*0.3,num_rounds*1.2])
+ax1.set_xlim([1,num_nodes])
 
 
 #Plot the reference line
@@ -123,8 +123,7 @@ for i in hops_info:
     my_reply_list = []
     my_dist_list = []
 
-  my_reply_list.append(num_reply_delivered[i]/total_num_req * 100)
-  #print(num_reply_delivered[i]/total_num_req)
+  my_reply_list.append(num_reply_delivered[i]/num_rounds * 100)
 
   dist = compute_cartesian_distance(nodes_location[i], nodes_location[gateway_node])
   my_dist_list.append(dist)

@@ -29,10 +29,6 @@ public:
 
   virtual void Print (std::ostream &os) const;
 
-  void SetSeqNumber(uint8_t seqNum);
-
-  uint8_t GetSeqNumber() const;
-
   void SetNextReqTime(uint32_t nextReqTime);
 
   uint32_t GetNextReqTime() const;
@@ -45,9 +41,13 @@ public:
 
   uint8_t GetOption() const;
 
+  void SetChannel(uint8_t channel);
+
+  uint8_t GetChannel() const;
+
 private:
-  uint8_t m_seqNum;
   uint8_t m_option;
+  uint8_t m_channel;
   uint32_t m_nextReqTime;
   uint8_t m_maxBackoff;
 

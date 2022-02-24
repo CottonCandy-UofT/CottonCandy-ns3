@@ -23,6 +23,7 @@ public:
     JOIN = 1,
     JOIN_ACK = 2,
     JOIN_CFM = 3,
+    SEEK_JOIN = 4,
     GATEWAY_REQ = 6,
     NODE_REPLY = 7
   };

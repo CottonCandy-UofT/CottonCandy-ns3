@@ -31,11 +31,22 @@ public:
 
   void SetHops(uint8_t hops);
 
+  void SetRssi(int m_rssiFeedback);
+
+  void SetNumChildren(uint8_t m_numChidlren);
+
   uint8_t GetHops() const;
+
+  int GetRssi() const;
+
+  uint8_t GetNumChildren() const;
 
 private:
   uint8_t m_hops;
 
+  int m_rssiFeedback;
+
+  uint8_t m_numChildren;
 };
 }
 

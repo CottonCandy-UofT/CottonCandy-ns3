@@ -10,9 +10,9 @@ TypeId
 CottoncandyAddressGenerator::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::CottoncandyAddressGenerator")
-                          .SetParent<Object> ()
-                          .SetGroupName ("lorawan")
-                          .AddConstructor<CottoncandyAddressGenerator> ();
+    .SetParent<Object> ()
+    .SetGroupName ("lorawan")
+    .AddConstructor<CottoncandyAddressGenerator> ();
   return tid;
 }
 

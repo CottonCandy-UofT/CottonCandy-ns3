@@ -194,7 +194,7 @@ main (int argc, char *argv[])
   CottoncandySimpleAppHelper appHelper = CottoncandySimpleAppHelper ();
 
   //For end nodes, they should start at a random back-off
-  appHelper.SetStartTime (60);
+  appHelper.SetStartTime (0);
   appHelper.SetReplyLen(replyLen);
   appHelper.Install (endDevices);
 

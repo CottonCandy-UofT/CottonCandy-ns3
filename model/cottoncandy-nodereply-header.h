@@ -27,23 +27,18 @@ public:
     virtual uint32_t Deserialize(Buffer::Iterator start);
 
     virtual void Print (std::ostream &os) const;
+    
+    virtual void SetOption(uint8_t option);
 
-    virtual void SetSeqNum(uint8_t seqNum);
-
-    virtual uint8_t GetSeqNum() const;
+    virtual uint8_t GetOption() const;
 
     virtual void SetDataLen(uint8_t len);
 
     virtual uint8_t GetDataLen() const;
 
-    virtual void SetAggregated(bool aggregated);
-
-    virtual bool GetAggregated() const;
-
 private:
-    uint8_t m_seqNum;
+    uint8_t m_option = 0;
     uint8_t m_dataLen; //7-bit only (0-127)
-    bool m_aggregated = false;
 };
 }
 }

@@ -17,19 +17,6 @@ CottoncandyGatewayReqHeader::~CottoncandyGatewayReqHeader ()
 {
 }
 
-void CottoncandyGatewayReqHeader::SetSeqNumber(uint8_t seqNum){
-  NS_LOG_FUNCTION(this << seqNum);
-
-  m_seqNum = seqNum;
-
-}
-
-uint8_t CottoncandyGatewayReqHeader::GetSeqNumber() const{
-  NS_LOG_FUNCTION_NOARGS();
-
-  return m_seqNum;
-}
-
 void CottoncandyGatewayReqHeader::SetNextReqTime(uint32_t nextReqTime){
   NS_LOG_FUNCTION(this << nextReqTime);
 
@@ -66,6 +53,18 @@ uint8_t CottoncandyGatewayReqHeader::GetOption() const{
   return m_option;
 }
 
+void CottoncandyGatewayReqHeader::SetChannel(uint8_t channel){
+  NS_LOG_FUNCTION(this << channel);
+
+  m_channel = channel;
+}
+
+uint8_t CottoncandyGatewayReqHeader::GetChannel() const{
+  NS_LOG_FUNCTION_NOARGS();
+
+  return m_channel;
+}
+
 TypeId CottoncandyGatewayReqHeader::GetTypeId(void){
   static TypeId tid = TypeId("CottoncandyGatewayReqHeader").SetParent<Header>().AddConstructor<CottoncandyGatewayReqHeader>();
 
@@ -79,41 +78,33 @@ TypeId CottoncandyGatewayReqHeader::GetInstanceTypeId(void) const{
 void CottoncandyGatewayReqHeader::Serialize(Buffer::Iterator start) const{
   NS_LOG_FUNCTION_NOARGS();
 
-  start.WriteU8(m_seqNum);
   start.WriteU8(m_option);
-  if(m_option & 0x80){
-    start.WriteU32(m_nextReqTime);
-  }
+  start.WriteU8(m_channel);
 
-  if(m_option & 0x40){
-    start.WriteU8(m_maxBackoff);
-  }
+
+  start.WriteU32(m_nextReqTime);
+
+  start.WriteU8(m_maxBackoff);
+  
 }
 
 
 uint32_t CottoncandyGatewayReqHeader::Deserialize(Buffer::Iterator start){
   NS_LOG_FUNCTION_NOARGS();
 
-  m_seqNum = start.ReadU8();
   m_option = start.ReadU8();
+  m_channel = start.ReadU8();
 
-  uint32_t len = 2;
+  m_nextReqTime = start.ReadU32();
 
-  if(m_option & 0x80){
-    m_nextReqTime = start.ReadU32();
-    len += 4;
-  }
+  m_maxBackoff = start.ReadU8();
 
-  if(m_option & 0x40){
-    m_maxBackoff = start.ReadU8();
-    len += 1;
-  }
 
-  return len;
+  return 7;
 }
 
 void CottoncandyGatewayReqHeader::Print(std::ostream &os) const{
-    os << "seq Number =" << unsigned(m_seqNum) << 
+    os << "option =" << unsigned(m_option) << ", channel =" << unsigned(m_channel) <<
     ", nextReqTime = " << m_nextReqTime << ", max backoff time =" << m_maxBackoff <<std::endl;
 }
 
@@ -121,16 +112,7 @@ void CottoncandyGatewayReqHeader::Print(std::ostream &os) const{
 uint32_t CottoncandyGatewayReqHeader::GetSerializedSize(void) const{
   NS_LOG_FUNCTION_NOARGS();
 
-  uint32_t len = 2;
-  if(m_option & 0x80){
-    len += 4;
-  }
-
-  if(m_option & 0x40){
-    len += 1;
-  }
-
-  return len;
+  return 7;
 }
 
 }
