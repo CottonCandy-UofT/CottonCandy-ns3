@@ -46,14 +46,36 @@ LoraPacketTracker::~LoraPacketTracker ()
 
 void LoraPacketTracker::CottoncandyConnectionCallback(uint16_t childAddr, uint16_t parentAddr, Vector childPosition){
 
-  CottoncandyStatus status;
-  status.parentAddr = parentAddr;
-  status.position = childPosition;
-  status.numReplyDelivered = 0;
-  status.numReqReceived = 0;
+  if(m_cottoncandyTopology.find(childAddr) != m_cottoncandyTopology.end()){
+    //Self-healing event (i.e. node has joined the network before)
+    m_cottoncandyTopology[childAddr].parentAddr = parentAddr;
+    m_cottoncandyTopology[childAddr].numSelfHealing ++;
+  }else{
+    CottoncandyStatus status;
+    status.parentAddr = parentAddr;
+    status.position = childPosition;
+    status.numReplyDelivered = 0;
+    status.numReqReceived = 0;
+    //Fresh join
+    status.numSelfHealing = 0;
+    status.timeFirstJoin = Simulator::Now().GetSeconds();
+    m_cottoncandyTopology.insert(std::pair<uint16_t, CottoncandyStatus> (childAddr,status));
 
-  m_cottoncandyTopology.insert(std::pair<uint16_t, CottoncandyStatus> (childAddr,status));
+    if(m_cottoncandyTopology.size() == m_numNodes){
+      NS_LOG_DEBUG("All nodes (gateway) have joined the network");
+      m_joinCompleteTime = status.timeFirstJoin;
+    }
+  }
+  
   NS_LOG_DEBUG("Insert edge " << parentAddr << " to " << childAddr);
+}
+
+void LoraPacketTracker::CottoncandySetNumNodes(int numNodes){
+  m_numNodes = numNodes;
+}
+
+double LoraPacketTracker::CottoncandyGetJoinCompletionTime(){
+  return m_joinCompleteTime;
 }
 
 void LoraPacketTracker::CottoncandyReceiveReqCallback(uint16_t nodeAddr){
@@ -65,6 +87,11 @@ void LoraPacketTracker::CottoncandyReceiveReqCallback(uint16_t nodeAddr){
 }
 
 void LoraPacketTracker::CottoncandyReplyDeliveredCallback(uint16_t nodeAddr){
+  if(m_cottoncandyTopology.size() < m_numNodes){
+    //We do not count the reply deliver rate until all nodes have joined the network
+    return;
+  }
+
   auto it = m_cottoncandyTopology.find (nodeAddr);
 
   if(it != m_cottoncandyTopology.end()){
@@ -115,7 +142,7 @@ std::string LoraPacketTracker::PrintCottoncandyEdges(){
     CottoncandyStatus status = iter->second;
     ss << std::hex << iter->first << " " << status.position.x << " " << status.position.y << " " 
        << std::hex << status.parentAddr << " " << std::dec << status.numReqReceived <<  " " 
-       << status.numReplyDelivered <<"\n";
+       << status.numReplyDelivered << " " << status.numSelfHealing << "\n";
   }
 
   return ss.str();

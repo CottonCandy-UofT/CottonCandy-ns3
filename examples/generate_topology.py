@@ -26,6 +26,7 @@ num_req_received = {}
 num_reply_delivered = {}
 
 num_rounds = 500
+num_effective_rounds = 0
 
 gateway_node = 0
 
@@ -51,10 +52,12 @@ with open(file_path) as fp:
           color_list.append('green')
 
           num_req_received[node] = num_req
+
           num_reply_delivered[node] = num_reply
         else:
           color_list.append('red')
           gateway_node = node
+          num_effective_rounds = int(data[5])
 
 num_nodes = len(num_req_received)
 G.add_nodes_from(nodes_location.keys())
@@ -75,7 +78,7 @@ nx.draw_networkx(G, nodes_location, node_color=color_list,with_labels=True)
 
 #print("Req vs Reply: ", (total_num_req_recv, total_num_reply_deliver))
 
-reference_line = [num_rounds] * num_nodes
+reference_line = [num_effective_rounds] * num_nodes
 
 
 fig1, ax1 = plt.subplots(1,1, sharex=True)
@@ -83,8 +86,8 @@ fig1, ax1 = plt.subplots(1,1, sharex=True)
 ax1.bar(num_reply_delivered.keys(), num_reply_delivered.values())
 ax1.legend(["Number of Replies delivered (at the gateway)"])
 ax1.set_xlabel("Node Address (in decimal)")
-ax1.set_title("Data Gathering Performance")
-ax1.set_ylim([num_rounds*0.3,num_rounds*1.2])
+#ax1.set_title("Data Gathering Performance")
+ax1.set_ylim([num_effective_rounds*0.3,num_effective_rounds*1.2])
 ax1.set_xlim([1,num_nodes])
 
 
@@ -123,7 +126,7 @@ for i in hops_info:
     my_reply_list = []
     my_dist_list = []
 
-  my_reply_list.append(num_reply_delivered[i]/num_rounds * 100)
+  my_reply_list.append(num_reply_delivered[i]/num_effective_rounds * 100)
 
   dist = compute_cartesian_distance(nodes_location[i], nodes_location[gateway_node])
   my_dist_list.append(dist)
@@ -147,7 +150,7 @@ my_line_style={"linestyle":"-", "linewidth":2, "markeredgewidth":2, "elinewidth"
 ax2.errorbar(my_x_axis, mean_reply_dr_by_hop.values(), std_reply_dr_by_hop.values(), **my_line_style,color='darkgreen')
 ax2.set_xlabel("Number of hops (average distance) away from the gateway")
 ax2.set_ylabel("Average delivery rate for sensor data(%)")
-ax2.set_title("Packet Delivery Rate with respect to Number of Hops")
+#ax2.set_title("Packet Delivery Rate with respect to Number of Hops")
 ax2.grid(color='lightgrey', linestyle='-')
 ax2.set_facecolor('w')
 ax2.set_ylim([30,100])

@@ -79,6 +79,10 @@ struct CottoncandyStatus
 
    //For multi-channel design, number of times for channels switching
    uint32_t numChannelSwitched;
+
+   uint32_t numSelfHealing;
+
+   double timeFirstJoin;
 };
 
 typedef struct CottoncandyPhyPerf
@@ -140,6 +144,8 @@ public:
 
   //Not important since a node only listens to its parent and childs (within its range)
   void CottoncandyUnderSensitivityCallback (Ptr<Packet const> packet, uint32_t systemId); 
+
+  void CottoncandySetNumNodes(int numNodes);
   
   std::string GetHalfDuplexPacketCount();
   std::string GetCollisionStats();
@@ -152,6 +158,7 @@ public:
   void CottoncandyReceiveReqCallback(uint16_t nodeAddr);
   void CottoncandyReplyDeliveredCallback(uint16_t nodeAddr);
   void CottoncandyChannelSwitchCallback (uint16_t nodeAddr, uint8_t seqNum);
+  double CottoncandyGetJoinCompletionTime();
 
   std::string PrintCottoncandyEdges();
   std::string PrintCottoncandyChannelStats();
@@ -233,6 +240,9 @@ private:
   CottoncandyPhyPerf m_cottoncandyPhyPerf;
   CottoncandyCollisionLocation m_cottoncandyCollisionLoc;
   CottoncandyChannelSwitch m_cottoncandyChannelSwitch;
+  int m_numNodes;
+
+  double m_joinCompleteTime = 0; // in seconds
 };
 }
 }

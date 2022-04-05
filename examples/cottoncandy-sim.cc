@@ -63,8 +63,8 @@ main (int argc, char *argv[])
   double gridDelta = 2000;
   double gridWidth = 10;
 
-  double gatewayX = -3000;
-  double gatewayY = -3000;
+  double gatewayX = 0;
+  double gatewayY = 0;
 
   /**
    * Use commandline arguments to specify network paramters
@@ -149,6 +149,9 @@ main (int argc, char *argv[])
   // Create the LoraHelper
   LoraHelper helper = LoraHelper ();
   helper.EnablePacketTracking (); // Output filename
+  
+  LoraPacketTracker &tracker = helper.GetPacketTracker();
+  tracker.CottoncandySetNumNodes(numNodes + 1); // +1 for the gateway
 
   /************************
   *  Create End Devices  *
@@ -216,7 +219,6 @@ main (int argc, char *argv[])
 
   Simulator::Destroy ();
 
-  LoraPacketTracker &tracker = helper.GetPacketTracker();
   /*
   std::time_t t = std::time(0);
   std::tm* now = std::localtime(&t);
@@ -235,14 +237,14 @@ main (int argc, char *argv[])
   topologyFile << tracker.PrintCottoncandyEdges() << std::endl;
   topologyFile.close();
 
-  filename = "channelHistory.txt";
+  //filename = "channelHistory.txt";
 
-  std::ofstream channelHistory;
-  channelHistory.open (filename, std::ofstream::out | std::ofstream::trunc);
-  channelHistory << tracker.PrintCottoncandyChannelStats() << std::endl;
-  channelHistory.close();
+  //std::ofstream channelHistory;
+  //channelHistory.open (filename, std::ofstream::out | std::ofstream::trunc);
+  //channelHistory << tracker.PrintCottoncandyChannelStats() << std::endl;
+  //channelHistory.close();
 
-  std::cout << tracker.GetHalfDuplexPacketCount() << std::endl;
+  std::cout << tracker.CottoncandyGetJoinCompletionTime() << std::endl;
   std::cout << tracker.GetCollisionStats() << std::endl;
 
   return 0;

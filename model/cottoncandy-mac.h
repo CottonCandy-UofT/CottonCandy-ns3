@@ -47,30 +47,47 @@ enum CottonCandyState{
   DISCONNECTED,
   CONNECTED,
   OBSERVE,
-  SEEK_JOIN,
+  SEEK_JOIN_WINDOW,
   LISTEN_TO_PARENT,
   TALK_TO_CHILDREN,
   HIBERNATE,
   ACCEPT_JOIN
 };
 
-static const double MAX_BACKOFF_JOIN = 1;
-
-static const Time JOIN_ACK_TIMEOUT = Seconds(1);
-
-static const Time SEEK_JOIN_DURATION = Seconds(60);
-static const Time ACCEPT_JOIN_DURATION = Seconds(5);
-static const Time SHORT_HIBERNATION_DURATION = Seconds(10);
-
-static const Time DCP_TIMEOUT = Seconds(600);
-
+/**************** Channel Assignment ******************/
 static const uint8_t PUBLIC_CHANNEL = 64;
 static const double CHANNEL_SIZE = 0.2;
 static const double CHANNEL_START_FREQ = 902.0;
 static const uint8_t NUM_CHANNELS = 64;
 static const uint8_t INVALID_CHANNEL = 255;
 
+/**************** Backoff parameters **************************/
+static const double MIN_BACKOFF = 0.1;
+static const uint8_t BACKOFF_MULTIPLIER = 3;
+static const double MAX_BACKOFF_JOIN = 1;
+
+/**************** Parameters used for joining **************************/
+static const double RSSI_THRESHOLD = -115;
+static const int MAX_NUM_CHILDREN = 3;
+static const int MAX_NUM_CANDIDATE_PARENT = 3;
+static const uint8_t MAX_NUM_HOPS = 10;
+
+/**************** Timeout durations **************************/
+static const Time SEEK_JOIN_DURATION = Seconds(MAX_NUM_HOPS * MAX_NUM_CHILDREN * BACKOFF_MULTIPLIER);
+static const Time ACCEPT_JOIN_DURATION = Seconds(6);
+static const Time SHORT_HIBERNATION_DURATION = Seconds(10);
+
 static const uint8_t MAX_EMPTY_ROUNDS = 5;
+//Set this to very long since node failure will not happen in simulations
+static const Time DCP_TIMEOUT = Seconds(600);
+
+static const Time JOIN_ACK_TIMEOUT = Seconds(1);
+
+/***************** Transmission power ************************/
+//Note: this corresponds to the min/max value in the CottonCandy library 
+static const uint8_t MIN_TX_POWER = 8;
+static const uint8_t MAX_TX_POWER = 17;
+static const uint8_t TX_POWER_INCREMENT = 3;
 
 typedef struct{
   CottoncandyAddress parentAddr;
@@ -84,23 +101,15 @@ class LoraPhy;
 
 static const CottoncandyAddress BROADCAST_ADDR = CottoncandyAddress(0xff);
 
-static const double MIN_BACKOFF = 0.1;
 static const double MAX_BACKOFF = 3;
 
 static const uint8_t MAX_INITIAL_JOIN_ATTEMPTS = 10;
 static const uint8_t MAX_SELF_HEALING_ATTEMPTS = 3;
 
-//Note: this corresponds to the min/max value in the CottonCandy library 
-static const uint8_t MIN_TX_POWER = 9;
-static const uint8_t MAX_TX_POWER = 17;
-
 static const int MIN_DISCOVERY_DELAY = 5;
 static const int MAX_DISCOVERY_DELAY = 120;
 
 static const int MAX_JOIN_ACK_BACKOFF_TIME = 1;
-
-static const int MAX_NUM_CHILDREN = 3;
-static const int MAX_NUM_CANDIDATE_PARENT = 2;
 
 /**
  * Class representing the LoRaWAN MAC layer.
@@ -384,8 +393,8 @@ protected:
   ParentNode m_parent;
   uint8_t m_numChildren;
 
-  std::map<CottoncandyAddress, Time> pendingChildren;
-  std::vector<CottoncandyAddress> childList;
+  std::map<CottoncandyAddress, Time> pendingChildren = std::map<CottoncandyAddress, Time>();
+  std::vector<CottoncandyAddress> childList = std::vector<CottoncandyAddress>();
 
   uint8_t m_numOutgoingJoinAck = 0;
 
@@ -438,6 +447,7 @@ protected:
 
   EventId m_endDCPId;
   EventId m_endObserveId;
+  EventId m_endDiscoveryId;
 
   uint8_t m_emptyRounds = 0;
 
@@ -449,6 +459,7 @@ protected:
 
   bool m_nextDutyCycleKnown = false;
   bool m_channelConflict = true;
+  bool m_repliesFromChildren = false;
   
 };
 
