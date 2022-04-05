@@ -44,11 +44,12 @@ LoraPacketTracker::~LoraPacketTracker ()
 // MAC metrics //
 /////////////////
 
-void LoraPacketTracker::CottoncandyConnectionCallback(uint16_t childAddr, uint16_t parentAddr, Vector childPosition){
+void LoraPacketTracker::CottoncandyConnectionCallback(uint16_t childAddr, uint16_t parentAddr, Vector childPosition, uint8_t txPwr){
 
   if(m_cottoncandyTopology.find(childAddr) != m_cottoncandyTopology.end()){
     //Self-healing event (i.e. node has joined the network before)
     m_cottoncandyTopology[childAddr].parentAddr = parentAddr;
+    m_cottoncandyTopology[childAddr].txPwr = txPwr;
     m_cottoncandyTopology[childAddr].numSelfHealing ++;
   }else{
     CottoncandyStatus status;
@@ -56,6 +57,9 @@ void LoraPacketTracker::CottoncandyConnectionCallback(uint16_t childAddr, uint16
     status.position = childPosition;
     status.numReplyDelivered = 0;
     status.numReqReceived = 0;
+
+    status.txPwr = txPwr;
+
     //Fresh join
     status.numSelfHealing = 0;
     status.timeFirstJoin = Simulator::Now().GetSeconds();
@@ -142,7 +146,7 @@ std::string LoraPacketTracker::PrintCottoncandyEdges(){
     CottoncandyStatus status = iter->second;
     ss << std::hex << iter->first << " " << status.position.x << " " << status.position.y << " " 
        << std::hex << status.parentAddr << " " << std::dec << status.numReqReceived <<  " " 
-       << status.numReplyDelivered << " " << status.numSelfHealing << "\n";
+       << status.numReplyDelivered << " " << status.numSelfHealing << " " << (int)status.txPwr << "\n";
   }
 
   return ss.str();

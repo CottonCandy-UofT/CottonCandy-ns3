@@ -83,6 +83,8 @@ struct CottoncandyStatus
    uint32_t numSelfHealing;
 
    double timeFirstJoin;
+
+   uint8_t txPwr;
 };
 
 typedef struct CottoncandyPhyPerf
@@ -154,7 +156,7 @@ public:
   // MAC layer callbacks //
   /////////////////////////
 
-  void CottoncandyConnectionCallback(uint16_t childAddr, uint16_t parentAddr, Vector childPosition);
+  void CottoncandyConnectionCallback(uint16_t childAddr, uint16_t parentAddr, Vector childPosition, uint8_t txPwr);
   void CottoncandyReceiveReqCallback(uint16_t nodeAddr);
   void CottoncandyReplyDeliveredCallback(uint16_t nodeAddr);
   void CottoncandyChannelSwitchCallback (uint16_t nodeAddr, uint8_t seqNum);

@@ -125,11 +125,11 @@ main (int argc, char *argv[])
   double minY = minX;
 
   mobility.SetPositionAllocator ("ns3::GridPositionAllocator",
-                                  "MinX", DoubleValue (-9500),
-                                  "MinY", DoubleValue (-9500),
+                                  "MinX", DoubleValue (minX),
+                                  "MinY", DoubleValue (minY),
                                   "DeltaX", DoubleValue (gridDelta),
                                   "DeltaY", DoubleValue (gridDelta),
-                                  "GridWidth", UintegerValue (10),
+                                  "GridWidth", UintegerValue (gridWidth),
                                   "LayoutType", StringValue ("RowFirst"));
   }
 
@@ -244,7 +244,7 @@ main (int argc, char *argv[])
   //channelHistory << tracker.PrintCottoncandyChannelStats() << std::endl;
   //channelHistory.close();
 
-  std::cout << tracker.CottoncandyGetJoinCompletionTime() << std::endl;
+  std::cout << "Join Completion at " << tracker.CottoncandyGetJoinCompletionTime() << " seconds" << std::endl;
   std::cout << tracker.GetCollisionStats() << std::endl;
 
   return 0;

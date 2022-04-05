@@ -84,10 +84,9 @@ static const Time DCP_TIMEOUT = Seconds(600);
 static const Time JOIN_ACK_TIMEOUT = Seconds(1);
 
 /***************** Transmission power ************************/
-//Note: this corresponds to the min/max value in the CottonCandy library 
 static const uint8_t MIN_TX_POWER = 8;
 static const uint8_t MAX_TX_POWER = 17;
-static const uint8_t TX_POWER_INCREMENT = 3;
+static const uint8_t TX_POWER_INCREMENT = 1;
 
 typedef struct{
   CottoncandyAddress parentAddr;
@@ -314,7 +313,7 @@ protected:
   *
   * \see class CallBackTraceSource
   */
-  TracedCallback<uint16_t, uint16_t, ns3::Vector> m_connectionEstablished;
+  TracedCallback<uint16_t, uint16_t, ns3::Vector, uint8_t> m_connectionEstablished;
 
   TracedCallback<uint16_t> m_gatewayReqReceived;
 

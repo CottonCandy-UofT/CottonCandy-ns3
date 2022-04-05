@@ -752,7 +752,7 @@ CottoncandyMac::TalkToChildren ()
   reqHdr.SetNextReqTime ((uint32_t) std::floor (timeTillNextAcceptJoin.GetSeconds ()));
 
   uint8_t maxBackoff = (m_numChildren == 0) ? 1 : m_numChildren * BACKOFF_MULTIPLIER;
-  NS_LOG_DEBUG ("Set max backoff to " << (int)maxBackoff);
+  //NS_LOG_DEBUG ("Set max backoff to " << (int)maxBackoff);
   reqHdr.SetMaxBackoff (maxBackoff);
 
   packet->AddHeader (reqHdr);
@@ -799,7 +799,7 @@ CottoncandyMac::ReceiveTimeout ()
 
       m_emptyRounds++;
 
-      if (m_emptyRounds >= MAX_EMPTY_ROUNDS || (m_emptyRounds > 2 && m_numChildren == 0))
+      if (m_emptyRounds >= MAX_EMPTY_ROUNDS || (m_emptyRounds > 0 && m_numChildren == 0))
         {
           //5 consecutive hibernations with no data
 
@@ -947,7 +947,7 @@ CottoncandyMac::Run ()
   if (m_address.isGateway())
     {
       NS_LOG_DEBUG ("This is a gateway device");
-      m_connectionEstablished (m_address.Get (), 0, m_phy->GetMobility ()->GetPosition ());
+      m_connectionEstablished (m_address.Get (), 0, m_phy->GetMobility ()->GetPosition (), MAX_TX_POWER);
 
       m_parent.hops = 0;
       m_parent.ulChannel = m_channel; //The gateway sets the ulChannel to the m_channel
@@ -1091,8 +1091,11 @@ CottoncandyMac::EndDataCollectionPhase ()
 
   if (!m_address.isGateway () && !m_nextDutyCycleKnown)
     {
-      NS_LOG_DEBUG("Error: Need to sel-heal");
+      NS_LOG_DEBUG("Error: Need to self-heal");
       //We lost synchronization with the rest of the network
+
+      //Reset the Tx power
+      m_txPower = MIN_TX_POWER;
       EnterObservePhase ();
     }
 
@@ -1224,7 +1227,7 @@ CottoncandyMac::DiscoveryTimeout ()
 
           //Callback to log the connection
           m_connectionEstablished (m_address.Get (), m_parent.parentAddr.Get (),
-                                   m_phy->GetMobility ()->GetPosition ());
+                                   m_phy->GetMobility ()->GetPosition (), m_txPower);
 
           NS_LOG_DEBUG("Final tx power set to " << m_txPower);
 
