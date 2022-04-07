@@ -60,6 +60,9 @@ void LoraPacketTracker::CottoncandyConnectionCallback(uint16_t childAddr, uint16
 
     status.txPwr = txPwr;
 
+    status.channel = 0;
+    status.maxNumInterferers = 0;
+
     //Fresh join
     status.numSelfHealing = 0;
     status.timeFirstJoin = Simulator::Now().GetSeconds();
@@ -104,38 +107,23 @@ void LoraPacketTracker::CottoncandyReplyDeliveredCallback(uint16_t nodeAddr){
 }
 
 void
-LoraPacketTracker::CottoncandyChannelSwitchCallback(uint16_t nodeAddr, uint8_t seqNum){
-  auto it = m_cottoncandyChannelSwitch.find(nodeAddr);
-
-  if(it == m_cottoncandyChannelSwitch.end()){
-    //Create the history array
-    std::vector<uint8_t> history;
-    history.push_back(seqNum);
-
-    m_cottoncandyChannelSwitch.insert(std::pair<uint16_t, std::vector<uint8_t>>(nodeAddr,history));
-  }else{
-    //The vector should be non-empty as it is initialized with a value (see above)
-    if(!it->second.empty()){
-      it->second.push_back(seqNum);
-    }
+LoraPacketTracker::CottoncandyChannelSelectionCallback (uint16_t nodeAddr, uint8_t channel){
+  auto it = m_cottoncandyTopology.find (nodeAddr);
+  
+  if(it != m_cottoncandyTopology.end()){
+    it->second.channel = channel;
   }
 }
 
-std::string LoraPacketTracker::PrintCottoncandyChannelStats(){
-  std::stringstream ss;
-  for (auto iter = m_cottoncandyChannelSwitch.begin(); iter != m_cottoncandyChannelSwitch.end(); iter++){
-    ss << std::dec << iter->first;
-
-    std::vector<uint8_t> seqHistory = iter->second;
-
-    for (auto iter2 = seqHistory.begin(); iter2 != seqHistory.end(); iter2++){
-      ss << " " << std::dec << (int)*iter2;
+void 
+LoraPacketTracker::CottoncandyNumInterferersCallback(uint16_t nodeAddr, uint8_t numInterferers){
+    auto it = m_cottoncandyTopology.find (nodeAddr);
+  
+  if(it != m_cottoncandyTopology.end()){
+    if(it->second.maxNumInterferers  < numInterferers){
+        it->second.maxNumInterferers = numInterferers;
     }
-
-    ss << "\n";
   }
-
-  return ss.str();
 }
 
 
@@ -144,9 +132,18 @@ std::string LoraPacketTracker::PrintCottoncandyEdges(){
   std::stringstream ss;
   for (auto iter = m_cottoncandyTopology.begin(); iter != m_cottoncandyTopology.end(); iter++){
     CottoncandyStatus status = iter->second;
-    ss << std::hex << iter->first << " " << status.position.x << " " << status.position.y << " " 
-       << std::hex << status.parentAddr << " " << std::dec << status.numReqReceived <<  " " 
-       << status.numReplyDelivered << " " << status.numSelfHealing << " " << (int)status.txPwr << "\n";
+    ss << std::hex << iter->first 
+       << " " << status.position.x 
+       << " " << status.position.y 
+       << " " << std::hex << status.parentAddr 
+       << " " << std::dec << status.numReqReceived 
+       << " " << status.numReplyDelivered 
+       << " " << (int)status.txPwr 
+       << " " << (int)status.channel
+       << " " << (int)status.maxNumInterferers
+       << " " << status.numSelfHealing 
+       << " " << status.timeFirstJoin
+       << "\n";
   }
 
   return ss.str();

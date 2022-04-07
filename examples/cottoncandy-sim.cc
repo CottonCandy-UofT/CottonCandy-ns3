@@ -66,6 +66,11 @@ main (int argc, char *argv[])
   double gatewayX = 0;
   double gatewayY = 0;
 
+  int simMode = CottonCandySimulationMode::FULL_SIMULATION;
+  int numChannels = 64;
+
+  std::string outputFileName = "topology.txt";
+
   /**
    * Use commandline arguments to specify network paramters
    */ 
@@ -80,6 +85,9 @@ main (int argc, char *argv[])
 
   cmd.AddValue("gridDelta", "Vertical/Horizontal distance between two adjacent nodes in a grid",
               gridDelta);
+  cmd.AddValue("fileName", "File name for the output data", outputFileName);
+  cmd.AddValue("numChannels", "Number of channels. Default is 64", numChannels);
+  cmd.AddValue("mode", "Full Simulation - 0, Test Static TX discovery only - 1, Test Proximity-Based Discovery Only - 2. Default is 0", simMode);
 
   cmd.Parse(argc, argv);
 
@@ -199,6 +207,8 @@ main (int argc, char *argv[])
   //For end nodes, they should start at a random back-off
   appHelper.SetStartTime (0);
   appHelper.SetReplyLen(replyLen);
+  appHelper.SetSimulationMode(simMode);
+  appHelper.SetNumChannels(numChannels);
   appHelper.Install (endDevices);
 
   //The gateway should be up at the beginning at the simulation
@@ -230,12 +240,10 @@ main (int argc, char *argv[])
   std::string filename = ss.str();
   */
 
-  std::string filename = "topology.txt";
-
-  std::ofstream topologyFile;
-  topologyFile.open (filename, std::ofstream::out | std::ofstream::trunc);
-  topologyFile << tracker.PrintCottoncandyEdges() << std::endl;
-  topologyFile.close();
+  std::ofstream outputFile;
+  outputFile.open (outputFileName, std::ofstream::out | std::ofstream::trunc);
+  outputFile << tracker.PrintCottoncandyEdges() << std::endl;
+  outputFile.close();
 
   //filename = "channelHistory.txt";
 

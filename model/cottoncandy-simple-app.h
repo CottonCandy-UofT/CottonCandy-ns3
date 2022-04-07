@@ -28,6 +28,10 @@ public:
 
   void SetReplyLen(uint8_t len);
 
+  void SetSimulationMode(int mode);
+
+  void SetNumChannels(int numChannels);
+
   /**
    * Stop the application.
    */
@@ -48,6 +52,10 @@ private:
   Time m_startTime;
 
   uint8_t m_replyLen;
+
+  int m_numChannels;
+
+  int m_simMode;
 };
 
 } //namespace ns3

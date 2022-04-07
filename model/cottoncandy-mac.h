@@ -38,10 +38,28 @@
 
 #include "ns3/cottoncandy-channel-selector.h"
 #include <array>
+#include <algorithm>
 
 namespace ns3 {
 namespace lorawan {
 
+enum CottonCandySimulationMode{
+  FULL_SIMULATION,
+  TEST_STATIC_TX_DISCOVERY_ONLY,
+  TEST_PROXIMITY_BASED_DISCOVERY_ONLY,
+  TEST_MULTI_CHANNEL_WITH_PROXIMITY_BASED_DISCOVERY,
+  TEST_RANDOM_CHANNEL_WITH_PROXIMITY_BASED_DISCOVERY
+};
+
+enum CottonCandyChannelAlgorithm{
+  RANDOM_CHANNEL,
+  CHANNEL_ANNOUNCEMENT
+};
+
+enum CottonCandyDiscoveryMode{
+  STATIC_TX_PWR,
+  ADAPTIVE_TX_PWR
+};
 
 enum CottonCandyState{
   DISCONNECTED,
@@ -58,7 +76,7 @@ enum CottonCandyState{
 static const uint8_t PUBLIC_CHANNEL = 64;
 static const double CHANNEL_SIZE = 0.2;
 static const double CHANNEL_START_FREQ = 902.0;
-static const uint8_t NUM_CHANNELS = 64;
+static const uint8_t DEFAULT_NUM_CHANNELS = 64;
 static const uint8_t INVALID_CHANNEL = 255;
 
 /**************** Backoff parameters **************************/
@@ -99,16 +117,6 @@ typedef struct{
 class LoraPhy;
 
 static const CottoncandyAddress BROADCAST_ADDR = CottoncandyAddress(0xff);
-
-static const double MAX_BACKOFF = 3;
-
-static const uint8_t MAX_INITIAL_JOIN_ATTEMPTS = 10;
-static const uint8_t MAX_SELF_HEALING_ATTEMPTS = 3;
-
-static const int MIN_DISCOVERY_DELAY = 5;
-static const int MAX_DISCOVERY_DELAY = 120;
-
-static const int MAX_JOIN_ACK_BACKOFF_TIME = 1;
 
 /**
  * Class representing the LoRaWAN MAC layer.
@@ -280,6 +288,10 @@ public:
 
   void SetReplyLen(uint8_t len);
 
+  void SetSimulationMode(int mode);
+
+  void SetNumChannels(int numChannels);
+
   void DoSend(Ptr<Packet> packet,double freq, double txPower);
 
   
@@ -323,7 +335,9 @@ protected:
 
   TracedCallback<uint8_t> m_collisionDetected;
 
-  TracedCallback<uint16_t, uint8_t> m_channelSwitched;
+  TracedCallback<uint16_t, uint8_t> m_channelSelected;
+
+  TracedCallback<uint16_t, uint8_t> m_numInterferersDetected;
 
   /**
    * Trace source that is fired when a packet reaches the MAC layer.
@@ -397,16 +411,9 @@ protected:
 
   uint8_t m_numOutgoingJoinAck = 0;
 
-  /**
-   * @brief Configuration of join
-   * 
-   */
-  uint8_t m_maxJoinAttempts = MAX_INITIAL_JOIN_ATTEMPTS;
   ParentNode bestParentCandidate;
-  Ptr<Packet> m_joinBeacon;
 
   uint8_t m_replyLen = 0;
-
 
   /**
    * An uniform random variable, used by the Shuffle method to randomly reorder
@@ -418,24 +425,10 @@ protected:
 
   uint32_t m_dutyCycleInterval = 3600;
 
-  double m_maxBackoff = MAX_BACKOFF;
+  double m_maxBackoff = BACKOFF_MULTIPLIER;
 
   uint8_t m_channel;
 
-  Ptr<CottoncandyChannelSelector> m_channelSelector;
-
-  uint8_t m_connectionAttempts = 0;
-
-  Ptr<Packet> m_aggregatedReply;
-
-  bool m_aggregating = false;
-
-  uint32_t m_aggregationSize;
-
-  //placeholder for future settings
-  bool m_aggregationEnable = true;
-  bool m_staticChannelEnable = true;
-  bool m_multiChannelEnable = true;
 
   double m_txPower = MIN_TX_POWER; 
 
@@ -450,7 +443,7 @@ protected:
 
   uint8_t m_emptyRounds = 0;
 
-  std::vector<int> m_interfererChannels = std::vector<int>(NUM_CHANNELS);
+  std::vector<int> m_interfererChannels;
   
   std::map<CottoncandyAddress, uint8_t> m_candidateParents = std::map<CottoncandyAddress, uint8_t>();
 
@@ -459,6 +452,12 @@ protected:
   bool m_nextDutyCycleKnown = false;
   bool m_channelConflict = true;
   bool m_repliesFromChildren = false;
+
+  int m_simMode = CottonCandySimulationMode::FULL_SIMULATION;
+  int m_channelAlg = CottonCandyChannelAlgorithm::CHANNEL_ANNOUNCEMENT;
+  int m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
+
+  int m_numChannels = DEFAULT_NUM_CHANNELS;
   
 };
 

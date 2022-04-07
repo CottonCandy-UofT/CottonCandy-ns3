@@ -67,6 +67,10 @@ fig = plt.figure(figsize=(8,6))
 ax = fig.add_subplot(1, 1, 1)
 
 nx.draw_networkx(G, nodes_location, node_color=color_list,with_labels=True)
+
+if num_effective_rounds == 0:
+  plt.show()
+  exit(0)
 #ax.grid('on')
 
 #plt.savefig("my_ns3_topology.png")
@@ -79,7 +83,6 @@ nx.draw_networkx(G, nodes_location, node_color=color_list,with_labels=True)
 #print("Req vs Reply: ", (total_num_req_recv, total_num_reply_deliver))
 
 reference_line = [num_effective_rounds] * num_nodes
-
 
 fig1, ax1 = plt.subplots(1,1, sharex=True)
 #ax1.bar(num_req_received.keys(), num_req_received.values())

@@ -48,8 +48,11 @@ CottoncandyMac::GetTypeId (void)
     .AddTraceSource ("CollisionDetected", "Trace source indicating a failed RX event",
                      MakeTraceSourceAccessor (&CottoncandyMac::m_collisionDetected),
                      "ns3::TracedValueCallback::uint8_t")
-    .AddTraceSource ("ChannelSwitched", "Trace source indicating a channel switch event",
-                     MakeTraceSourceAccessor (&CottoncandyMac::m_channelSwitched),
+    .AddTraceSource ("ChannelSelected", "Trace source indicating the final choice of channel",
+                     MakeTraceSourceAccessor (&CottoncandyMac::m_channelSelected),
+                     "ns3::TracedValueCallback::uint16_t")
+    .AddTraceSource ("NumInterferers", "Trace source indicating the number of interferers detected",
+                     MakeTraceSourceAccessor (&CottoncandyMac::m_numInterferersDetected),
                      "ns3::TracedValueCallback::uint16_t")
     .AddConstructor<CottoncandyMac> ();
   return tid;
@@ -79,7 +82,6 @@ CottoncandyMac::CottoncandyMac ()
   m_params.lowDataRateOptimizationEnabled = 0;
 
   m_numChildren = 0;
-  m_channelSelector = CreateObject<CottoncandyChannelSelector> ();
 }
 
 CottoncandyMac::~CottoncandyMac ()
@@ -336,8 +338,8 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
             }
           else if (m_state == SEEK_JOIN_WINDOW)
             {
-              NS_ASSERT (privateChannel < NUM_CHANNELS);
-              NS_ASSERT (parentChannel < NUM_CHANNELS);
+              NS_ASSERT (privateChannel < m_numChannels);
+              NS_ASSERT (parentChannel < m_numChannels);
 
               m_interfererChannels[privateChannel]++;
               if (privateChannel != parentChannel)
@@ -359,9 +361,14 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
                   double delay = m_uniformRV->GetValue (0, m_maxBackoff);
 
                   m_nextAcceptJoin = Simulator::Now () + Seconds (timeTillNextAcceptJoin);
-                  Simulator::Schedule (Seconds (timeTillNextAcceptJoin),
+
+                  //If we only simulate for multi-channel and proximity-based parent discovery, the scheduling will be done automatically
+                  //Since we do not want selfhealing to occur
+                  if(!m_nextDutyCycleKnown){
+                    Simulator::Schedule (Seconds (timeTillNextAcceptJoin),
                                        &CottoncandyMac::EnterAcceptJoinPhase, this);
-                  m_nextDutyCycleKnown = true;
+                    m_nextDutyCycleKnown = true;
+                  }
 
                   NS_LOG_DEBUG ("Next duty cycle starts after " << std::dec << timeTillNextAcceptJoin);
 
@@ -824,36 +831,45 @@ CottoncandyMac::EndSeekJoinPhase ()
 {
   if (!m_address.isGateway () && m_channel == INVALID_CHANNEL)
     {
-      //The channel ranges from 0 to 63, the channel 0 is a public channel,
-      //Therefore the private channels starts at 1
-      int leastUsedChannel = 0;
-      int leastUsedTimes = m_interfererChannels[0];
+      if(m_channelAlg == CottonCandyChannelAlgorithm::RANDOM_CHANNEL){
 
-      std::vector<uint8_t> unusedChannels;
+        m_channel = m_uniformRV->GetInteger(0, m_numChannels - 1);
 
-      for (int i = 0; i < NUM_CHANNELS; i++)
-        {
-          if (m_interfererChannels[i] == 0)
-            {
-              unusedChannels.push_back(i);
-            }
-
-          if (m_interfererChannels[i] < leastUsedTimes)
-            {
-              leastUsedChannel = i;
-              leastUsedTimes = m_interfererChannels[i];
-            }
-        }
-
-      if(unusedChannels.size() > 0){
-        int index = m_uniformRV->GetInteger(0, unusedChannels.size() - 1);
-        m_channel = unusedChannels[index];
       }else{
-        m_channel = leastUsedChannel;
-      }
 
-      NS_LOG_DEBUG ("My channel is " << std::dec << (unsigned int)m_channel);
+        auto leastUsedChannel = std::min_element(m_interfererChannels.begin(), m_interfererChannels.end());
+        int leastUsedTimes = *leastUsedChannel;
+
+        std::vector<uint8_t> availableChannels;
+
+        //Collect the channels that are equally least used 
+        for (int i = 0; i < m_numChannels; i++)
+          {
+            if (m_interfererChannels[i] == leastUsedTimes)
+              {
+                availableChannels.push_back(i);
+              }
+          }
+
+        if(availableChannels.size() > 0){
+          int index = m_uniformRV->GetInteger(0, availableChannels.size() - 1);
+          m_channel = availableChannels[index];
+        }else{
+          m_channel = 0;
+        }
+      }
     }
+
+  NS_LOG_DEBUG ("My channel is " << std::dec << (unsigned int)m_channel);
+  
+  //Record the final channel choice
+  m_channelSelected(m_address.Get(), m_channel);
+  
+  //Record the number of interferers detected this round
+  m_numInterferersDetected(m_address.Get(), m_interfererChannels[m_channel]);
+
+  //Reset the interferer information
+  std::fill (m_interfererChannels.begin (), m_interfererChannels.end (), 0);
 
   NS_LOG_DEBUG ("Send out a SEEK_JOIN message");
   Ptr<Packet> packet = Create<Packet> ();
@@ -893,6 +909,10 @@ CottoncandyMac::EndSeekJoinPhase ()
     {
       m_state = HIBERNATE;
     }
+
+  if(m_simMode != FULL_SIMULATION){
+     m_state = HIBERNATE;
+  }
 
 }
 
@@ -936,11 +956,55 @@ CottoncandyMac::SetChannel (uint8_t channel)
 void
 CottoncandyMac::Run ()
 {
+  NS_LOG_DEBUG("Simulation Mode = " << m_simMode);
+  switch(m_simMode){
+    case CottonCandySimulationMode::FULL_SIMULATION:
+    {
+      m_channelAlg = CottonCandyChannelAlgorithm::CHANNEL_ANNOUNCEMENT;
+      m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
+      break;
+    }
+    case CottonCandySimulationMode::TEST_STATIC_TX_DISCOVERY_ONLY:
+    {
+      // Single Channel
+      if(m_numChannels != 1){
+        m_numChannels = 1;
+      }
+      m_discoveryMode =  CottonCandyDiscoveryMode::STATIC_TX_PWR;
+      break;
+    }
+    case CottonCandySimulationMode::TEST_PROXIMITY_BASED_DISCOVERY_ONLY:
+    {
+      if(m_numChannels != 1){
+        m_numChannels = 1;
+      }
+      m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
+      break;
+    }
+    case CottonCandySimulationMode::TEST_MULTI_CHANNEL_WITH_PROXIMITY_BASED_DISCOVERY:
+    {
+      m_channelAlg = CottonCandyChannelAlgorithm::CHANNEL_ANNOUNCEMENT;
+      m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
+      break;
+    }case CottonCandySimulationMode::TEST_RANDOM_CHANNEL_WITH_PROXIMITY_BASED_DISCOVERY:
+    {
+       m_channelAlg = CottonCandyChannelAlgorithm::RANDOM_CHANNEL;
+       m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
+       break;
+    }
+  }
+
+  if(m_discoveryMode == CottonCandyDiscoveryMode::STATIC_TX_PWR){
+    m_txPower = MAX_TX_POWER;
+  }else{
+    m_txPower = MIN_TX_POWER;
+  }
 
   m_phy->GetObject<EndDeviceLoraPhy> ()->SwitchToStandby ();
 
   m_numChildren = 0;
 
+  m_interfererChannels = std::vector<int>(m_numChannels);
   //Initialize the list of channel usage
   std::fill (m_interfererChannels.begin (), m_interfererChannels.end (), 0);
 
@@ -955,7 +1019,9 @@ CottoncandyMac::Run ()
       EnterAcceptJoinPhase ();
 
       //Selects a random private channel to use
-      m_channel = m_uniformRV->GetInteger (0, NUM_CHANNELS);
+      m_channel = m_uniformRV->GetInteger (0, m_numChannels-1);
+
+      m_channelSelected(m_address.Get(), m_channel);
     }
   else
     {
@@ -984,6 +1050,18 @@ CottoncandyMac::SetReplyLen (uint8_t len)
 }
 
 void
+CottoncandyMac::SetSimulationMode (int mode)
+{
+  m_simMode = mode;
+}
+
+void
+CottoncandyMac::SetNumChannels (int numChannels)
+{
+  m_numChannels = numChannels;
+}
+
+void
 CottoncandyMac::EnterSeekJoinPhase ()
 {
   NS_LOG_DEBUG ("Enter SeekJoin phase");
@@ -992,7 +1070,13 @@ CottoncandyMac::EnterSeekJoinPhase ()
   //Listen on the public channel
   SetChannel (PUBLIC_CHANNEL);
 
-  Simulator::Schedule (SEEK_JOIN_DURATION, &CottoncandyMac::EnterDataCollectionPhase, this);
+  if(m_simMode != CottonCandySimulationMode::FULL_SIMULATION){
+    //We do not do data collection if we are only simulating for multi-channel and proximity-based parent discovery
+    //Simulator::Schedule (SEEK_JOIN_DURATION, &CottoncandyMac::EndDataCollectionPhase, this);
+  }else{
+    Simulator::Schedule (SEEK_JOIN_DURATION, &CottoncandyMac::EnterDataCollectionPhase, this);
+  }
+
 
   // Clear the expired entries in the JOIN phase
   pendingChildren.clear ();
@@ -1077,6 +1161,12 @@ CottoncandyMac::EnterAcceptJoinPhase ()
     {
       //Initialize
       m_nextDutyCycleKnown = false;
+
+      //For these 2 types of simulations, we do not need to run DCP and only need to operate a SEEK_JOIN phase every duty cycle
+      if(m_simMode != FULL_SIMULATION){
+        Simulator::Schedule ( Seconds (3600), &CottoncandyMac::EnterAcceptJoinPhase, this);
+        m_nextDutyCycleKnown = true;
+      }
     }
 }
 
@@ -1094,8 +1184,11 @@ CottoncandyMac::EndDataCollectionPhase ()
       NS_LOG_DEBUG("Error: Need to self-heal");
       //We lost synchronization with the rest of the network
 
-      //Reset the Tx power
-      m_txPower = MIN_TX_POWER;
+      if(m_discoveryMode == CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR){
+        //Reset the Tx power
+        m_txPower = MIN_TX_POWER;
+      }
+
       EnterObservePhase ();
     }
 
@@ -1243,7 +1336,7 @@ CottoncandyMac::DiscoveryTimeout ()
           //We cannot find a good parent after going through all candidates
           m_state = OBSERVE;
 
-          if (m_txPower < MAX_TX_POWER)
+          if (m_discoveryMode == ADAPTIVE_TX_PWR && m_txPower < MAX_TX_POWER)
             {
               //Increment the TX power
               m_txPower+=TX_POWER_INCREMENT;

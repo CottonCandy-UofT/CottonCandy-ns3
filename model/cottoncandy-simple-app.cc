@@ -66,6 +66,14 @@ void CottoncandySimpleApp::SetReplyLen(uint8_t len){
   m_replyLen = len;
 }
 
+void CottoncandySimpleApp::SetNumChannels(int numChannels){
+  m_numChannels = numChannels;
+}
+
+void CottoncandySimpleApp::SetSimulationMode(int mode){
+  m_simMode = mode;
+}
+
 void CottoncandySimpleApp::Start(){
   m_mac->Run();
 }
@@ -85,6 +93,8 @@ CottoncandySimpleApp::StartApplication (void)
     NS_ASSERT (m_mac != 0);
   }
   m_mac->SetReplyLen(m_replyLen);
+  m_mac->SetSimulationMode(m_simMode);
+  m_mac->SetNumChannels(m_numChannels);
 
   Simulator::Schedule (m_startTime, &CottoncandySimpleApp::Start, this);
 }

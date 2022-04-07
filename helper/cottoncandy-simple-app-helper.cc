@@ -35,6 +35,15 @@ CottoncandySimpleAppHelper::SetReplyLen(uint8_t len)
   m_replyLen = len;
 }
 
+void CottoncandySimpleAppHelper::SetNumChannels(int numChannels){
+  m_numChannels = numChannels;
+}
+
+void CottoncandySimpleAppHelper::SetSimulationMode(int mode){
+  m_simMode = mode;
+}
+
+
 void
 CottoncandySimpleAppHelper::SetAttribute (std::string name,
                                    const AttributeValue &value)
@@ -75,6 +84,8 @@ CottoncandySimpleAppHelper::InstallPriv (Ptr<Node> node) const
 
   app->SetStartTime (startDelay);
   app->SetReplyLen(m_replyLen);
+  app->SetSimulationMode(m_simMode);
+  app->SetNumChannels(m_numChannels);
 
   app->SetNode (node);
   node->AddApplication (app);

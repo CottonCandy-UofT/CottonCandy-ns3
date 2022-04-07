@@ -77,14 +77,15 @@ struct CottoncandyStatus
    //Number of its own replies delivered to the gateway
    uint32_t numReplyDelivered;
 
-   //For multi-channel design, number of times for channels switching
-   uint32_t numChannelSwitched;
-
    uint32_t numSelfHealing;
 
    double timeFirstJoin;
 
    uint8_t txPwr;
+
+   uint8_t channel;
+
+   uint8_t maxNumInterferers;
 };
 
 typedef struct CottoncandyPhyPerf
@@ -159,7 +160,8 @@ public:
   void CottoncandyConnectionCallback(uint16_t childAddr, uint16_t parentAddr, Vector childPosition, uint8_t txPwr);
   void CottoncandyReceiveReqCallback(uint16_t nodeAddr);
   void CottoncandyReplyDeliveredCallback(uint16_t nodeAddr);
-  void CottoncandyChannelSwitchCallback (uint16_t nodeAddr, uint8_t seqNum);
+  void CottoncandyChannelSelectionCallback (uint16_t nodeAddr, uint8_t channel);
+  void CottoncandyNumInterferersCallback(uint16_t nodeAddr, uint8_t numInterferers);
   double CottoncandyGetJoinCompletionTime();
 
   std::string PrintCottoncandyEdges();
@@ -241,7 +243,6 @@ private:
   CottoncandyEdges m_cottoncandyTopology;
   CottoncandyPhyPerf m_cottoncandyPhyPerf;
   CottoncandyCollisionLocation m_cottoncandyCollisionLoc;
-  CottoncandyChannelSwitch m_cottoncandyChannelSwitch;
   int m_numNodes;
 
   double m_joinCompleteTime = 0; // in seconds

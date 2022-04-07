@@ -37,6 +37,10 @@ public:
 
   void SetReplyLen (uint8_t len);
 
+  void SetSimulationMode(int mode);
+
+  void SetNumChannels(int numChannels);
+
 private:
   Ptr<Application> InstallPriv (Ptr<Node> node) const;
 
@@ -47,6 +51,10 @@ private:
 
   uint8_t m_replyLen;
   Ptr<UniformRandomVariable> m_uniformRv;
+
+  int m_numChannels;
+
+  int m_simMode;
 };
 
 } // namespace ns3
