@@ -39,6 +39,7 @@
 #include "ns3/cottoncandy-channel-selector.h"
 #include <array>
 #include <algorithm>
+#include <math.h>
 
 namespace ns3 {
 namespace lorawan {
@@ -84,6 +85,9 @@ static const double MIN_BACKOFF = 0.1;
 static const uint8_t BACKOFF_MULTIPLIER = 3;
 static const double MAX_BACKOFF_JOIN = 1;
 
+static const double REQUIRED_COLLISION_RATE = 0.05;
+static const double MAX_AIR_TIME = 0.118;
+
 /**************** Parameters used for joining **************************/
 static const double RSSI_THRESHOLD = -115;
 static const int MAX_NUM_CHILDREN = 3;
@@ -91,13 +95,13 @@ static const int MAX_NUM_CANDIDATE_PARENT = 3;
 static const uint8_t MAX_NUM_HOPS = 10;
 
 /**************** Timeout durations **************************/
-static const Time SEEK_JOIN_DURATION = Seconds(MAX_NUM_HOPS * MAX_NUM_CHILDREN * BACKOFF_MULTIPLIER);
+static const Time SEEK_JOIN_DURATION = Seconds(120);
 static const Time ACCEPT_JOIN_DURATION = Seconds(6);
 static const Time SHORT_HIBERNATION_DURATION = Seconds(10);
 
 static const uint8_t MAX_EMPTY_ROUNDS = 5;
 //Set this to very long since node failure will not happen in simulations
-static const Time DCP_TIMEOUT = Seconds(600);
+static const Time DCP_TIMEOUT = Seconds(900);
 
 static const Time JOIN_ACK_TIMEOUT = Seconds(1);
 
@@ -113,6 +117,11 @@ typedef struct{
   int linkQuality;
   uint8_t ulChannel;
 } ParentNode;
+
+typedef struct{
+  bool replyReceived;
+  uint8_t missingDutyCycles;
+} ChildStatus;
 
 class LoraPhy;
 
@@ -407,7 +416,7 @@ protected:
   uint8_t m_numChildren;
 
   std::map<CottoncandyAddress, Time> pendingChildren = std::map<CottoncandyAddress, Time>();
-  std::vector<CottoncandyAddress> childList = std::vector<CottoncandyAddress>();
+  std::map<CottoncandyAddress, ChildStatus> childList = std::map<CottoncandyAddress, ChildStatus>();
 
   uint8_t m_numOutgoingJoinAck = 0;
 
@@ -440,6 +449,8 @@ protected:
   EventId m_endDCPId;
   EventId m_endObserveId;
   EventId m_endDiscoveryId;
+
+  Time m_endDCPTime;
 
   uint8_t m_emptyRounds = 0;
 

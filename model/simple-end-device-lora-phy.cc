@@ -70,14 +70,14 @@ SimpleEndDeviceLoraPhy::Send (Ptr<Packet> packet, LoraTxParameters txParams,
       packetCopy->RemoveHeader(mHdr);
 
       if(mHdr.GetType() == CottoncandyMacHeader::MsgType::NODE_REPLY){
-        printf("Cannot send because device is currently in TX mode\n");
+        //printf("Cannot send because device is currently in TX mode\n");
       }
       return;
     }
 
   if(m_state == RX && m_currentRxEventId.GetUid() != 0 && !m_currentRxEventId.IsExpired()){
 
-    printf("An ongoing RX event has been cancelled due to TX\n");
+    //printf("An ongoing RX event has been cancelled due to TX\n");
     
       // This should also be treated as a half-duplex event
     m_halfDuplexCallback(m_currentRxPacket);

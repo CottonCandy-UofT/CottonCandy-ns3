@@ -308,7 +308,7 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
                   m_candidateParents.insert (
                     std::pair<CottoncandyAddress, uint8_t> (src, privateChannel));
 
-                  NS_LOG_DEBUG ("A parent candidate 0x" << std::hex << src.Get () << std::dec << ": join in " << timeTillNextAcceptJoin << ", numChidlren:"
+                  NS_LOG_DEBUG ("A parent candidate 0x" << std::dec << src.Get () << std::dec << ": join in " << timeTillNextAcceptJoin << ", numChidlren:"
                                                         << (unsigned int)numChildrenOfSender << ", private/parent channel:" << (unsigned int)privateChannel << "/" << (unsigned int)parentChannel);
 
                   if (m_candidateParents.size () == 1)
@@ -316,7 +316,6 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
                       //If this is the first candidate, we set the time of the next accept join phase
 
                       //TODO: Now just use a constant 10 seconds (i.e. After a node receives a SEEK_JOIN, it receives for another
-                      //10 seconds to try to get another candidate)
                       m_endObserveId =
                         Simulator::Schedule (Seconds (10), &CottoncandyMac::EndObservePhase, this);
 
@@ -451,6 +450,11 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
           m_currentCandidate.numChildren = ackHdr.GetNumChildren ();
           m_currentCandidate.linkQuality = std::min (ackHdr.GetRssi (), (int) rxPower);
 
+          if(m_currentCandidate.hops >= MAX_NUM_HOPS){
+            NS_LOG_DEBUG("Too many hops " << (int)m_currentCandidate.hops);
+            break;
+          }
+
           NS_LOG_DEBUG ("Possible parent with link quaility = " << std::dec << m_currentCandidate.linkQuality
                                                                 << " and hops = "
                                                                 << (int) m_currentCandidate.hops);
@@ -506,7 +510,10 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
               pendingChildren.erase (child);
             }
 
-          childList.push_back (src);
+          ChildStatus status;
+          status.replyReceived = false;
+          status.missingDutyCycles = false;
+          childList.insert (std::pair<CottoncandyAddress, ChildStatus>(src, status));
           m_numChildren++;
           NS_LOG_DEBUG ("JOIN_CFM message received. Now have " << childList.size() << " children");
           break;
@@ -561,7 +568,7 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
             {
               if (m_PendingData.size () == 1)
                 {
-                  NS_LOG_DEBUG ("Sending local reply to parent 0x" << std::hex << m_parent.parentAddr.Get () << " with delay = " << delay.GetSeconds());
+                  NS_LOG_DEBUG ("Sending local reply to parent 0x" << std::dec << m_parent.parentAddr.Get () << " with delay = " << delay.GetSeconds());
                   Ptr<Packet> reply =  m_PendingData.front ()->Copy ();
 
                   //Modify the destination field in the header
@@ -683,13 +690,18 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
           CottoncandyNodeReplyHeader replyHdr;
           packetCopy->RemoveHeader (replyHdr);
 
-          if(m_repliesFromChildren){
+          auto childIter = childList.find(src);
+          if(childIter != childList.end()){
+            childIter->second.replyReceived = true;
+          }
+          else if (m_repliesFromChildren){
             //The first round of replies are local data from children
             //If the children is not confirmed, we add it to the children list
-            if(std::find(childList.begin(), childList.end(), src) == childList.end()){
-              childList.push_back(src);
-              m_numChildren ++;
-            }
+            ChildStatus status;
+            status.replyReceived = true;
+            status.missingDutyCycles = false;
+            childList.insert (std::pair<CottoncandyAddress, ChildStatus>(src, status));
+            m_numChildren ++;
           }
 
           if (m_address.isGateway ())
@@ -707,20 +719,20 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
                       packetCopy->RemoveHeader (miniHdr);
 
                       m_replyDelivered (miniHdr.GetSrc ());
-                      NS_LOG_DEBUG ("NodeReply arrived at the gateway. (mini)Src = 0x" << std::hex << miniHdr.GetSrc ());
+                      NS_LOG_DEBUG ("NodeReply arrived at the gateway. (mini)Src = " << std::dec << miniHdr.GetSrc ());
 
                       packetCopy->RemoveAtStart (miniHdr.GetDataLen ());
                     }
                 }
               else
                 {
-                  NS_LOG_DEBUG ("NodeReply arrived at the gateway. Src = 0x" << std::hex << src.Get ());
+                  NS_LOG_DEBUG ("NodeReply arrived at the gateway. Src = " << std::dec << src.Get ());
                   m_replyDelivered (src.Get ());
                 }
             }
           else
             {
-              NS_LOG_DEBUG ("Reply received from child 0x" << std::hex << src.Get ());
+              NS_LOG_DEBUG ("Reply received from child " << std::dec << src.Get ());
               //A node simply places the received packet in the buffer
               packetCopy->AddHeader(replyHdr);
               packetCopy->AddHeader (mHdr);
@@ -739,6 +751,11 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
 void
 CottoncandyMac::TalkToChildren ()
 {
+  //if(Simulator::Now() >= m_endDCPTime){
+  //  EndDataCollectionPhase();
+  //  return;
+  //}
+
   m_state = TALK_TO_CHILDREN;
   NS_LOG_FUNCTION_NOARGS ();
 
@@ -758,8 +775,52 @@ CottoncandyMac::TalkToChildren ()
   Time timeTillNextAcceptJoin = m_nextAcceptJoin - Simulator::Now ();
   reqHdr.SetNextReqTime ((uint32_t) std::floor (timeTillNextAcceptJoin.GetSeconds ()));
 
-  uint8_t maxBackoff = (m_numChildren == 0) ? 1 : m_numChildren * BACKOFF_MULTIPLIER;
-  //NS_LOG_DEBUG ("Set max backoff to " << (int)maxBackoff);
+  uint8_t maxBackoff = 0;
+
+  switch (m_numChildren)
+  {
+  case 0:
+  {
+    maxBackoff = 1;
+    break;
+  }
+  case 1:
+  {
+    maxBackoff = 3;
+    break;
+  }
+  case 2:
+  {
+    maxBackoff = 5;
+    break;
+  }
+  case 3:{
+    maxBackoff = 9;
+    break;
+  }
+  default:
+    maxBackoff = 9;
+    break;
+  }
+
+  /*
+  if(m_numChildren == 0){
+    maxBackoff = 1;
+
+  }else if(m_numChildren == 1){
+    maxBackoff = 3;
+  }
+  else{
+    double backoffRange = 2 * MAX_AIR_TIME / (1 - pow((1 - REQUIRED_COLLISION_RATE), 1/((double)m_numChildren - 1)));
+    
+    //NS_LOG_DEBUG("Backoff range = " << backoffRange);
+    maxBackoff = (int)ceil(backoffRange);
+  }*/
+
+  //NS_ASSERT(maxBackoff < 20);
+
+  //uint8_t maxBackoff = (m_numChildren == 0) ? 1 : m_numChildren * BACKOFF_MULTIPLIER;
+  NS_LOG_DEBUG ("Set max backoff to " << std::dec << (int)maxBackoff);
   reqHdr.SetMaxBackoff (maxBackoff);
 
   packet->AddHeader (reqHdr);
@@ -787,6 +848,11 @@ CottoncandyMac::ReceiveTimeout ()
 {
   NS_LOG_DEBUG ("Receive timeout");
 
+  if(m_endDCPId.IsExpired ()){
+    NS_LOG_DEBUG("Max DCP duration has reached already");
+    return;
+  }
+
   if(m_repliesFromChildren){
     m_repliesFromChildren = false;
   }
@@ -806,7 +872,9 @@ CottoncandyMac::ReceiveTimeout ()
 
       m_emptyRounds++;
 
-      if (m_emptyRounds >= MAX_EMPTY_ROUNDS || (m_emptyRounds > 0 && m_numChildren == 0))
+      //NS_LOG_DEBUG((int)m_emptyRounds);
+
+      if (m_emptyRounds >= MAX_EMPTY_ROUNDS || (m_numChildren == 0 && m_emptyRounds > 1))
         {
           //5 consecutive hibernations with no data
 
@@ -890,7 +958,52 @@ CottoncandyMac::EndSeekJoinPhase ()
   //NS time does rounding automatically when convert from double to integer, we use the floor so that a node will not wake up late
   seekHdr.SetNextAcceptJoinTime ((uint32_t) std::floor (timeTillNextAcceptJoin.GetSeconds ()));
 
-  uint8_t maxBackoff = (m_numChildren == 0) ? 1 : m_numChildren * BACKOFF_MULTIPLIER;
+
+  uint8_t maxBackoff = 0;
+
+    switch (m_numChildren)
+  {
+  case 0:
+  {
+    maxBackoff = 1;
+    break;
+  }
+  case 1:
+  {
+    maxBackoff = 3;
+    break;
+  }
+  case 2:
+  {
+    maxBackoff = 5;
+    break;
+  }
+  case 3:{
+    maxBackoff = 9;
+    break;
+  }
+  default:
+    maxBackoff = 9;
+    break;
+  }
+  /*
+  if(m_numChildren == 0){
+    maxBackoff = 1;
+
+  }else if (m_numChildren == 1){
+    maxBackoff = 3;
+  }
+  else{
+    double backoffRange = 2 * MAX_AIR_TIME / (1 - pow((1 - REQUIRED_COLLISION_RATE), 1/((double)m_numChildren - 1)));
+    
+    //NS_LOG_DEBUG("Backoff range = " << backoffRange);
+    maxBackoff = (int)ceil(backoffRange);
+  }*/
+
+  //NS_ASSERT(maxBackoff < 20);
+  //uint8_t maxBackoff = (m_numChildren == 0) ? 1 : m_numChildren * BACKOFF_MULTIPLIER;
+
+  NS_LOG_DEBUG ("Set max backoff to " << (int)maxBackoff);
 
   seekHdr.SetMaxBackoff (maxBackoff);
 
@@ -1093,11 +1206,14 @@ CottoncandyMac::EnterDataCollectionPhase ()
 {
   NS_LOG_DEBUG ("Enter Data Collection phase");
 
-  pendingChildren.clear ();
   m_phy->GetObject<EndDeviceLoraPhy>()->SwitchToStandby ();
 
   m_endDCPId = Simulator::Schedule (DCP_TIMEOUT, &CottoncandyMac::EndDataCollectionPhase, this);
+
+  //m_endDCPTime = Simulator::Now() + DCP_TIMEOUT;
   m_repliesFromChildren = true;
+
+  m_emptyRounds = 0;
 
   if (m_address.isGateway ())
     {
@@ -1176,12 +1292,27 @@ CottoncandyMac::EndDataCollectionPhase ()
   NS_LOG_DEBUG ("End data collection phase");
 
   //Reset
-  m_emptyRounds = 0;
   m_PendingData.clear ();
+
+  for(auto iter = childList.begin(); iter != childList.end();){
+    if(!iter->second.replyReceived){
+      iter->second.missingDutyCycles ++;
+    }else{
+      iter->second.missingDutyCycles = 0;
+    }
+
+    //Remove a child if it does not reply data back for 3 consecutive rounds
+    if(iter->second.missingDutyCycles >= 3){
+      childList.erase(iter++);
+      m_numChildren --;
+    }else{
+      ++iter;
+    }
+  }
 
   if (!m_address.isGateway () && !m_nextDutyCycleKnown)
     {
-      NS_LOG_DEBUG("Error: Need to self-heal");
+      NS_LOG_DEBUG("Error: Need to self-heal from parent " << std::dec << m_parent.parentAddr.Get());
       //We lost synchronization with the rest of the network
 
       if(m_discoveryMode == CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR){
@@ -1292,7 +1423,7 @@ CottoncandyMac::Join ()
       m_endDiscoveryId = Simulator::Schedule (Seconds (delay) + airtime + JOIN_ACK_TIMEOUT,
                            &CottoncandyMac::DiscoveryTimeout, this);
 
-      NS_LOG_DEBUG ("Sending Join request to candidate " << std::hex << candidateAddr.Get ());
+      NS_LOG_DEBUG ("Sending Join request to candidate " << std::dec << candidateAddr.Get ());
     }
 }
 
@@ -1316,7 +1447,7 @@ CottoncandyMac::DiscoveryTimeout ()
           Ptr<Packet> cfmPacket = Create<Packet> ();
           cfmPacket->AddHeader (macHdr);
 
-          NS_LOG_DEBUG ("Join Successful. Parent Node is " << std::hex << m_parent.parentAddr.Get ());
+          NS_LOG_DEBUG ("Join Successful. Parent Node is " << std::dec << m_parent.parentAddr.Get ());
 
           //Callback to log the connection
           m_connectionEstablished (m_address.Get (), m_parent.parentAddr.Get (),
