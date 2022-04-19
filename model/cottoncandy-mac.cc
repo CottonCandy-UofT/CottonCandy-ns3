@@ -54,6 +54,12 @@ CottoncandyMac::GetTypeId (void)
     .AddTraceSource ("NumInterferers", "Trace source indicating the number of interferers detected",
                      MakeTraceSourceAccessor (&CottoncandyMac::m_numInterferersDetected),
                      "ns3::TracedValueCallback::uint16_t")
+    .AddTraceSource ("DCPDuration", "Trace source indicating the duration of DCP",
+                     MakeTraceSourceAccessor (&CottoncandyMac::m_DCPDuration),
+                     "ns3::TracedValueCallback::uint16_t")
+    .AddTraceSource ("EnergyConsumption", "Trace source indicating the energy consumption in a duty cycle",
+                     MakeTraceSourceAccessor (&CottoncandyMac::m_energyUsedInDutyCycle),
+                     "ns3::TracedValueCallback::uint16_t")  
     .AddConstructor<CottoncandyMac> ();
   return tid;
 }
@@ -1218,6 +1224,8 @@ CottoncandyMac::EnterDataCollectionPhase ()
 {
   NS_LOG_DEBUG ("Enter Data Collection phase");
 
+  m_DCPStartTime = Simulator::Now();
+
   m_phy->GetObject<EndDeviceLoraPhy>()->SwitchToStandby ();
 
   m_endDCPId = Simulator::Schedule (DCP_TIMEOUT, &CottoncandyMac::EndDataCollectionPhase, this);
@@ -1303,6 +1311,10 @@ CottoncandyMac::EndDataCollectionPhase ()
 {
   NS_LOG_DEBUG ("End data collection phase");
 
+  if(m_PendingData.size() > 0 && m_nextDutyCycleKnown){
+    //TODO: The parent or ancestor must have terminated early
+  }
+
   //Reset
   m_PendingData.clear ();
 
@@ -1326,13 +1338,19 @@ CottoncandyMac::EndDataCollectionPhase ()
     {
       NS_LOG_DEBUG("Error: Need to self-heal from parent " << std::dec << m_parent.parentAddr.Get());
       //We lost synchronization with the rest of the network
+      //NS_ASSERT(false);
 
       if(m_discoveryMode == CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR){
         //Reset the Tx power
         m_txPower = MIN_TX_POWER;
       }
+      //Reset the channel
+      //m_channel = INVALID_CHANNEL;
 
       EnterObservePhase ();
+    }else{
+      Time elpasedTimeInDCP = Simulator::Now() - m_DCPStartTime; 
+      m_DCPDuration(m_address.Get(),elpasedTimeInDCP);
     }
 
 }

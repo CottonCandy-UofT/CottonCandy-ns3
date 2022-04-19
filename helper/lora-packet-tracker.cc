@@ -66,6 +66,10 @@ void LoraPacketTracker::CottoncandyConnectionCallback(uint16_t childAddr, uint16
     //Fresh join
     status.numSelfHealing = 0;
     status.timeFirstJoin = Simulator::Now().GetSeconds();
+
+    status.totalTimeDCP = Seconds(0);
+    status.totalNumDCPs = 0;
+
     m_cottoncandyTopology.insert(std::pair<uint16_t, CottoncandyStatus> (childAddr,status));
 
     if(m_cottoncandyTopology.size() == m_numNodes){
@@ -126,6 +130,23 @@ LoraPacketTracker::CottoncandyNumInterferersCallback(uint16_t nodeAddr, uint8_t 
   }
 }
 
+void
+LoraPacketTracker::CottoncandyDCPDurationCallback(uint16_t nodeAddr, Time dcpDuration){
+  if(m_cottoncandyTopology.size() < m_numNodes){
+    //We do not count the reply deliver rate until all nodes have joined the network
+    return;
+  }
+
+  auto it = m_cottoncandyTopology.find (nodeAddr);
+  
+  if(it != m_cottoncandyTopology.end()){
+    it->second.totalTimeDCP += dcpDuration;
+
+    //We keep track of this since the ones as a self-healing event do not count
+    it->second.totalNumDCPs ++;
+  }
+}
+
 
 std::string LoraPacketTracker::PrintCottoncandyEdges(){
   //NS_LOG_DEBUG(m_cottoncandyTopology.size());
@@ -143,6 +164,7 @@ std::string LoraPacketTracker::PrintCottoncandyEdges(){
        << " " << (int)status.maxNumInterferers
        << " " << status.numSelfHealing 
        << " " << status.timeFirstJoin
+       << " " << status.totalTimeDCP.GetSeconds()/status.totalNumDCPs
        << "\n";
   }
 

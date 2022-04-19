@@ -101,7 +101,7 @@ static const Time SHORT_HIBERNATION_DURATION = Seconds(10);
 
 static const uint8_t MAX_EMPTY_ROUNDS = 5;
 //Set this to very long since node failure will not happen in simulations
-static const Time DCP_TIMEOUT = Seconds(900);
+static const Time DCP_TIMEOUT = Seconds(1800);
 
 static const Time JOIN_ACK_TIMEOUT = Seconds(1);
 
@@ -109,6 +109,16 @@ static const Time JOIN_ACK_TIMEOUT = Seconds(1);
 static const uint8_t MIN_TX_POWER = 8;
 static const uint8_t MAX_TX_POWER = 17;
 static const uint8_t TX_POWER_INCREMENT = 1;
+
+/***************** Power Consumption for each stage (Need measurement to double check) ************************/
+static const double RECEIVING_CURRENT = 10.84;
+static const double BACKOFF_CURRENT = 5.6;
+static const double HIBERNATION_CURRENT = 0.018;
+
+//Transmission current for tx power from 8 dBm to 17 dBm
+// From the LoRa Calculator: {25, 26, 31, 32, 34, 35, 44, 82, 85, 90};
+//Note that when doing the computation, one should also add the current consumption of the microcontoller, i.e. ~30 mA
+static const double TRANSMISSION_CURRENT[10] = {25, 26, 31, 32, 34, 35, 44, 82, 85, 90};
 
 typedef struct{
   CottoncandyAddress parentAddr;
@@ -348,6 +358,10 @@ protected:
 
   TracedCallback<uint16_t, uint8_t> m_numInterferersDetected;
 
+  TracedCallback<uint16_t, ns3::Time> m_DCPDuration;
+
+  TracedCallback<uint16_t, double> m_energyUsedInDutyCycle;
+
   /**
    * Trace source that is fired when a packet reaches the MAC layer.
    */
@@ -470,6 +484,10 @@ protected:
 
   int m_numChannels = DEFAULT_NUM_CHANNELS;
   
+
+  Time m_DCPStartTime;
+
+  Time m_previousTimeStamp;
 };
 
 } /* namespace ns3 */

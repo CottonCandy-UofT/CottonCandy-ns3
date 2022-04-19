@@ -86,6 +86,10 @@ struct CottoncandyStatus
    uint8_t channel;
 
    uint8_t maxNumInterferers;
+
+   Time totalTimeDCP;
+
+   uint32_t totalNumDCPs;
 };
 
 typedef struct CottoncandyPhyPerf
@@ -162,6 +166,8 @@ public:
   void CottoncandyReplyDeliveredCallback(uint16_t nodeAddr);
   void CottoncandyChannelSelectionCallback (uint16_t nodeAddr, uint8_t channel);
   void CottoncandyNumInterferersCallback(uint16_t nodeAddr, uint8_t numInterferers);
+  void CottoncandyDCPDurationCallback(uint16_t nodeAddr, Time dcpDuration);
+
   double CottoncandyGetJoinCompletionTime();
 
   std::string PrintCottoncandyEdges();

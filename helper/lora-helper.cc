@@ -156,6 +156,10 @@ NS_LOG_COMPONENT_DEFINE ("LoraHelper");
                                               MakeCallback
                                                   (&LoraPacketTracker::CottoncandyNumInterferersCallback,
                                                   m_packetTracker));
+              mac->TraceConnectWithoutContext("DCPDuration",
+                                              MakeCallback
+                                                  (&LoraPacketTracker::CottoncandyDCPDurationCallback,
+                                                  m_packetTracker));                                
                           
             }
             /*
