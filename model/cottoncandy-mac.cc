@@ -693,15 +693,20 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
           auto childIter = childList.find(src);
           if(childIter != childList.end()){
             childIter->second.replyReceived = true;
+            NS_LOG_DEBUG("Child " << src.Get() << " has replied in this round");
           }
           else if (m_repliesFromChildren){
             //The first round of replies are local data from children
             //If the children is not confirmed, we add it to the children list
+            NS_LOG_DEBUG("A previously unconfirmed child " << src.Get());
             ChildStatus status;
             status.replyReceived = true;
-            status.missingDutyCycles = false;
+            status.missingDutyCycles = 0;
             childList.insert (std::pair<CottoncandyAddress, ChildStatus>(src, status));
-            m_numChildren ++;
+            
+            if(childList.size() > m_numChildren){
+              m_numChildren ++;
+            }
           }
 
           if (m_address.isGateway ())
@@ -732,7 +737,7 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
             }
           else
             {
-              NS_LOG_DEBUG ("Reply received from child " << std::dec << src.Get ());
+              NS_LOG_DEBUG ("Reply received from node " << std::dec << src.Get ());
               //A node simply places the received packet in the buffer
               packetCopy->AddHeader(replyHdr);
               packetCopy->AddHeader (mHdr);
@@ -855,6 +860,13 @@ CottoncandyMac::ReceiveTimeout ()
 
   if(m_repliesFromChildren){
     m_repliesFromChildren = false;
+  }
+
+  //If we have unconfirmed children, we first add the number up to give more backoff time
+  //Ideally, in the next round, the longer backoff will allow those nodes to deliver their local
+  //data to the parent, such that the parent can formally add them to the list of children
+  if(m_numChildren < m_PendingData.size ()){
+    m_numChildren = m_PendingData.size ();
   }
 
   if (m_PendingData.size () > 0)
