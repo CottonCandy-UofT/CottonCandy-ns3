@@ -570,6 +570,15 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
           Time delay = Seconds (m_uniformRV->GetValue (MIN_BACKOFF, m_maxBackoff + MIN_BACKOFF));
           Time airtime = Seconds (0);
 
+          Time timeSpentListenToParent = Simulator::Now() - m_previousTimeStamp;
+          double energyUsedInListenToParent = timeSpentListenToParent.GetSeconds() * RECEIVING_CURRENT;
+          NS_LOG_DEBUG("Energy spent in listen to parent: " << energyUsedInListenToParent);
+          m_totalEnergyComsumed += energyUsedInListenToParent;
+
+          double energyUsedInBackoff = delay.GetSeconds() * BACKOFF_CURRENT;
+          NS_LOG_DEBUG("Energy spent in backoff: " << energyUsedInBackoff);
+          m_totalEnergyComsumed += energyUsedInBackoff;
+
           if (m_PendingData.size () > 0)
             {
               if (m_PendingData.size () == 1)
@@ -681,7 +690,10 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
 
           if (m_state == TALK_TO_CHILDREN)
             {
+              m_previousTimeStamp = Simulator::Now() + delay + airtime;
               Simulator::Schedule (delay + airtime, &CottoncandyMac::TalkToChildren, this);
+            }else{
+              m_previousTimeStamp = Simulator::Now();
             }
 
           break;
@@ -848,6 +860,12 @@ CottoncandyMac::TalkToChildren ()
   Time listenDuration = Seconds (maxBackoff);
   listenDuration = listenDuration + Seconds(0.5); // +0.5 seconds for airtime (incoming packets from children)
 
+  double energyInReceiving = listenDuration.GetSeconds() * RECEIVING_CURRENT;
+  NS_LOG_DEBUG("Energy in receiving replies: " << energyInReceiving);
+  m_totalEnergyComsumed += energyInReceiving;
+
+  m_previousTimeStamp = Simulator::Now() + airtime + listenDuration;
+
   //Set up the timeout
   Simulator::Schedule (airtime + listenDuration, &CottoncandyMac::ReceiveTimeout,
                        this);
@@ -906,6 +924,11 @@ CottoncandyMac::ReceiveTimeout ()
         }
       else
         {
+          double energyInHibernation = SHORT_HIBERNATION_DURATION.GetSeconds() * HIBERNATION_CURRENT;
+          NS_LOG_DEBUG("Energy in short hibernation: " << energyInHibernation);
+          m_totalEnergyComsumed += energyInHibernation;
+  
+          m_previousTimeStamp = Simulator::Now() + SHORT_HIBERNATION_DURATION;
           //Send out the request again after 10 seconds
           Simulator::Schedule (SHORT_HIBERNATION_DURATION, &CottoncandyMac::TalkToChildren, this);
         }
@@ -976,6 +999,13 @@ CottoncandyMac::EndSeekJoinPhase ()
   //NS time does rounding automatically when convert from double to integer, we use the floor so that a node will not wake up late
   seekHdr.SetNextAcceptJoinTime ((uint32_t) std::floor (timeTillNextAcceptJoin.GetSeconds ()));
 
+  Time timeSpentInSeekJoin = Simulator::Now() - m_previousTimeStamp;
+  double energyUsedInSeekJoin = timeSpentInSeekJoin.GetSeconds() * RECEIVING_CURRENT;
+  m_totalEnergyComsumed += energyUsedInSeekJoin;
+  NS_LOG_DEBUG("Energy used receiving in SeekJoin: " << energyUsedInSeekJoin);
+
+  //Reset the time stamp
+  m_previousTimeStamp = Simulator::Now();
 
   uint8_t maxBackoff = 0;
 
@@ -1059,6 +1089,14 @@ CottoncandyMac::Send (Ptr<Packet> packet, double freq, double txPower)
   Ptr<LogicalLoraChannel> channel = logicalChannels.at (0);
 
   Time nextTxDelay = m_channelHelper.GetWaitingTime (channel);
+
+  //Add to the total energy consumption 
+  Time airtime = m_phy->GetOnAirTime (packet, m_params);
+  double energyUsed = airtime.GetSeconds() * TRANSMISSION_CURRENT[(int)txPower - 8];
+  
+  NS_LOG_DEBUG("Energy used for transmission: txPwr =  " << txPower <<  " -> " << energyUsed << " mA * s");
+  
+  m_totalEnergyComsumed += energyUsed;
 
   if (nextTxDelay == Seconds (0))
     {
@@ -1198,6 +1236,14 @@ CottoncandyMac::EnterSeekJoinPhase ()
   NS_LOG_DEBUG ("Enter SeekJoin phase");
   m_state = SEEK_JOIN_WINDOW;
 
+  //First add the energy consumption for accept join phase
+  double acceptJoinEnergy = ACCEPT_JOIN_DURATION.GetSeconds() * RECEIVING_CURRENT;
+  NS_LOG_DEBUG("Energy spent for receiving in the Accept_Join phase" << acceptJoinEnergy );
+  m_totalEnergyComsumed += acceptJoinEnergy;
+
+  //Remember the timestamp now
+  m_previousTimeStamp = Simulator::Now();
+
   //Listen on the public channel
   SetChannel (PUBLIC_CHANNEL);
 
@@ -1223,6 +1269,21 @@ void
 CottoncandyMac::EnterDataCollectionPhase ()
 {
   NS_LOG_DEBUG ("Enter Data Collection phase");
+
+  if(!m_nextDutyCycleKnown){
+    //We did not receive a SEEK_JOIN in the seek join window, therefore endseekjoinphase() is never called
+    Time timeSpentInSeekJoin = Simulator::Now() - m_previousTimeStamp;
+    double energyUsedInSeekJoin = timeSpentInSeekJoin.GetSeconds() * RECEIVING_CURRENT;
+    m_totalEnergyComsumed += energyUsedInSeekJoin;
+    NS_LOG_DEBUG("Energy used receiving in SeekJoin: " << energyUsedInSeekJoin);
+  }else{
+    Time hibernationInSeekJoin = Simulator::Now() - m_previousTimeStamp;
+    double energyUsedInSeekJoinHibernate = hibernationInSeekJoin.GetSeconds() * HIBERNATION_CURRENT;
+    m_totalEnergyComsumed += energyUsedInSeekJoinHibernate;
+    NS_LOG_DEBUG("Energy used receiving in SeekJoin Hibernate: " << energyUsedInSeekJoinHibernate);
+  }
+  //Reset the time stamp
+  m_previousTimeStamp = Simulator::Now();
 
   m_DCPStartTime = Simulator::Now();
 
@@ -1282,6 +1343,9 @@ CottoncandyMac::EnterAcceptJoinPhase ()
 
   m_phy->GetObject<EndDeviceLoraPhy>()->SwitchToStandby ();
 
+  //Reset the energy usage
+  m_totalEnergyComsumed = 0;
+
   //Listen on the private channel of the node
   SetChannel (m_channel);
 
@@ -1314,6 +1378,10 @@ CottoncandyMac::EndDataCollectionPhase ()
   if(m_PendingData.size() > 0 && m_nextDutyCycleKnown){
     //TODO: The parent or ancestor must have terminated early
   }
+
+  //Time hibernationTime = m_nextAcceptJoin - Simulator::Now();
+  //double energyInHibernation = hibernationTime.GetSeconds() * HIBERNATION_CURRENT;
+  //m_totalEnergyComsumed += energyInHibernation;
 
   //Reset
   m_PendingData.clear ();
@@ -1351,6 +1419,10 @@ CottoncandyMac::EndDataCollectionPhase ()
     }else{
       Time elpasedTimeInDCP = Simulator::Now() - m_DCPStartTime; 
       m_DCPDuration(m_address.Get(),elpasedTimeInDCP);
+
+      //Report the energy used in this duty cycle
+      m_energyUsedInDutyCycle(m_address.Get(), m_totalEnergyComsumed);
+      NS_LOG_DEBUG("Total energy used in this duty cycle " << m_totalEnergyComsumed << " mA*s");
     }
 
 }
@@ -1489,6 +1561,8 @@ CottoncandyMac::DiscoveryTimeout ()
 
           //Switch to the seekjoin phase (which should be upcoming)
           Time airtime = m_phy->GetObject<EndDeviceLoraPhy> ()->GetOnAirTime (cfmPacket, m_params);
+
+          m_totalEnergyComsumed = 0;
 
           Simulator::Schedule (airtime, &CottoncandyMac::EnterSeekJoinPhase, this);
         }

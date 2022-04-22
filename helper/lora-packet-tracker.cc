@@ -147,6 +147,20 @@ LoraPacketTracker::CottoncandyDCPDurationCallback(uint16_t nodeAddr, Time dcpDur
   }
 }
 
+void
+LoraPacketTracker::CottoncandyEnergyReportCallback(uint16_t nodeAddr, double energyUsed){
+  if(m_cottoncandyTopology.size() < m_numNodes){
+    //We do not track the power consumption until all nodes have joined the network
+    return;
+  }
+
+  auto it = m_cottoncandyTopology.find (nodeAddr);
+  
+  if(it != m_cottoncandyTopology.end()){
+    it->second.totalEnergyConsumed += energyUsed;
+  }
+}
+
 
 std::string LoraPacketTracker::PrintCottoncandyEdges(){
   //NS_LOG_DEBUG(m_cottoncandyTopology.size());
@@ -165,6 +179,7 @@ std::string LoraPacketTracker::PrintCottoncandyEdges(){
        << " " << status.numSelfHealing 
        << " " << status.timeFirstJoin
        << " " << status.totalTimeDCP.GetSeconds()/status.totalNumDCPs
+       << " " << status.totalEnergyConsumed/3600
        << "\n";
   }
 

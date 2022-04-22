@@ -101,7 +101,7 @@ static const Time SHORT_HIBERNATION_DURATION = Seconds(10);
 
 static const uint8_t MAX_EMPTY_ROUNDS = 5;
 //Set this to very long since node failure will not happen in simulations
-static const Time DCP_TIMEOUT = Seconds(1800);
+static const Time DCP_TIMEOUT = Seconds(3000);
 
 static const Time JOIN_ACK_TIMEOUT = Seconds(1);
 
@@ -117,8 +117,11 @@ static const double HIBERNATION_CURRENT = 0.018;
 
 //Transmission current for tx power from 8 dBm to 17 dBm
 // From the LoRa Calculator: {25, 26, 31, 32, 34, 35, 44, 82, 85, 90};
-//Note that when doing the computation, one should also add the current consumption of the microcontoller, i.e. ~30 mA
-static const double TRANSMISSION_CURRENT[10] = {25, 26, 31, 32, 34, 35, 44, 82, 85, 90};
+// However, in practice we have to use the PA_BOOST pin which has a higher current draw. Similarly we also
+// want to add the power consumption of the microcontroller
+// The following data is obtained from measurement with NRF PPK2, note that the current consumption
+// converges to 117 mA due to the 100mA Over Current Protection in the library
+static const double TRANSMISSION_CURRENT[10] = {70, 74, 80, 85, 91.2, 97.7, 104.6, 112, 117, 117};
 
 typedef struct{
   CottoncandyAddress parentAddr;
@@ -488,6 +491,8 @@ protected:
   Time m_DCPStartTime;
 
   Time m_previousTimeStamp;
+
+  double m_totalEnergyComsumed = 0;
 };
 
 } /* namespace ns3 */

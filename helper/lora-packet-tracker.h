@@ -90,6 +90,8 @@ struct CottoncandyStatus
    Time totalTimeDCP;
 
    uint32_t totalNumDCPs;
+
+   double totalEnergyConsumed;
 };
 
 typedef struct CottoncandyPhyPerf
@@ -167,6 +169,7 @@ public:
   void CottoncandyChannelSelectionCallback (uint16_t nodeAddr, uint8_t channel);
   void CottoncandyNumInterferersCallback(uint16_t nodeAddr, uint8_t numInterferers);
   void CottoncandyDCPDurationCallback(uint16_t nodeAddr, Time dcpDuration);
+  void CottoncandyEnergyReportCallback(uint16_t nodeAddr, double energyUsed);
 
   double CottoncandyGetJoinCompletionTime();
 
