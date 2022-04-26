@@ -49,10 +49,16 @@ enum CottonCandySimulationMode{
   TEST_STATIC_TX_DISCOVERY_ONLY,
   TEST_PROXIMITY_BASED_DISCOVERY_ONLY,
   TEST_MULTI_CHANNEL_WITH_PROXIMITY_BASED_DISCOVERY,
-  TEST_RANDOM_CHANNEL_WITH_PROXIMITY_BASED_DISCOVERY
+  TEST_RANDOM_CHANNEL_WITH_PROXIMITY_BASED_DISCOVERY,
+  TEST_BASELINE, // No proximity based discovery, single channel, static backoff time = 3
+  TEST_SETUP1, // proximity based discovery, single channel, static backoff time = 3
+  TEST_SETUP2, // proximity based discovery, 20 channels, static backoff time = 3
+  TEST_SETUP3, // proximity based discovery, 20 channels, static backoff time = 9
+  TEST_SETUP4, // proximity based discovery, 20 channels, adaptive backoff time
 };
 
 enum CottonCandyChannelAlgorithm{
+  SINGLE_CHANNEL,
   RANDOM_CHANNEL,
   CHANNEL_ANNOUNCEMENT
 };
@@ -60,6 +66,12 @@ enum CottonCandyChannelAlgorithm{
 enum CottonCandyDiscoveryMode{
   STATIC_TX_PWR,
   ADAPTIVE_TX_PWR
+};
+
+enum CottonCandyBackoffMode{
+  STATIC_3_SECONDS,
+  STATIC_12_SECONDS,
+  ADAPTIVE
 };
 
 enum CottonCandyState{
@@ -484,6 +496,7 @@ protected:
   int m_simMode = CottonCandySimulationMode::FULL_SIMULATION;
   int m_channelAlg = CottonCandyChannelAlgorithm::CHANNEL_ANNOUNCEMENT;
   int m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
+  int m_backoffMode = CottonCandyBackoffMode::ADAPTIVE;
 
   int m_numChannels = DEFAULT_NUM_CHANNELS;
   

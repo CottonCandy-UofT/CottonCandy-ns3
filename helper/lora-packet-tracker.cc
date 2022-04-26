@@ -179,7 +179,7 @@ std::string LoraPacketTracker::PrintCottoncandyEdges(){
        << " " << status.numSelfHealing 
        << " " << status.timeFirstJoin
        << " " << status.totalTimeDCP.GetSeconds()/status.totalNumDCPs
-       << " " << status.totalEnergyConsumed/3600
+       << " " << status.totalEnergyConsumed/3600/status.totalNumDCPs
        << "\n";
   }
 

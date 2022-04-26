@@ -59,7 +59,7 @@ CottoncandyMac::GetTypeId (void)
                      "ns3::TracedValueCallback::uint16_t")
     .AddTraceSource ("EnergyConsumption", "Trace source indicating the energy consumption in a duty cycle",
                      MakeTraceSourceAccessor (&CottoncandyMac::m_energyUsedInDutyCycle),
-                     "ns3::TracedValueCallback::uint16_t")  
+                     "ns3::TracedValueCallback::uint16_t")
     .AddConstructor<CottoncandyMac> ();
   return tid;
 }
@@ -306,10 +306,11 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
               if (numChildrenOfSender < MAX_NUM_CHILDREN
                   && m_candidateParents.find (src) == m_candidateParents.end ())
                 {
-                  if(rxPower < RSSI_THRESHOLD && m_txPower < MAX_TX_POWER){
-                    NS_LOG_DEBUG(rxPower);
-                    break;
-                  }
+                  if (rxPower < RSSI_THRESHOLD && m_txPower < MAX_TX_POWER)
+                    {
+                      NS_LOG_DEBUG (rxPower);
+                      break;
+                    }
                   //Another distinct parent candidate has capacity for at least one more child, add it to a list
                   m_candidateParents.insert (
                     std::pair<CottoncandyAddress, uint8_t> (src, privateChannel));
@@ -343,8 +344,8 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
             }
           else if (m_state == SEEK_JOIN_WINDOW)
             {
-              NS_ASSERT (privateChannel < m_numChannels);
-              NS_ASSERT (parentChannel < m_numChannels);
+              //NS_ASSERT (privateChannel < m_numChannels);
+              //NS_ASSERT (parentChannel < m_numChannels);
 
               m_interfererChannels[privateChannel]++;
               if (privateChannel != parentChannel)
@@ -369,11 +370,12 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
 
                   //If we only simulate for multi-channel and proximity-based parent discovery, the scheduling will be done automatically
                   //Since we do not want selfhealing to occur
-                  if(!m_nextDutyCycleKnown){
-                    Simulator::Schedule (Seconds (timeTillNextAcceptJoin),
-                                       &CottoncandyMac::EnterAcceptJoinPhase, this);
-                    m_nextDutyCycleKnown = true;
-                  }
+                  if (!m_nextDutyCycleKnown)
+                    {
+                      Simulator::Schedule (Seconds (timeTillNextAcceptJoin),
+                                           &CottoncandyMac::EnterAcceptJoinPhase, this);
+                      m_nextDutyCycleKnown = true;
+                    }
 
                   NS_LOG_DEBUG ("Next duty cycle starts after " << std::dec << timeTillNextAcceptJoin);
 
@@ -445,7 +447,7 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
             }
           NS_LOG_DEBUG ("JOIN_ACK message received");
 
-          NS_ASSERT(src == m_currentCandidate.parentAddr);
+          NS_ASSERT (src == m_currentCandidate.parentAddr);
 
           CottoncandyJoinAckHeader ackHdr;
           packetCopy->RemoveHeader (ackHdr);
@@ -456,10 +458,11 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
           m_currentCandidate.numChildren = ackHdr.GetNumChildren ();
           m_currentCandidate.linkQuality = std::min (ackHdr.GetRssi (), (int) rxPower);
 
-          if(m_currentCandidate.hops >= MAX_NUM_HOPS){
-            NS_LOG_DEBUG("Too many hops " << (int)m_currentCandidate.hops);
-            break;
-          }
+          if (m_currentCandidate.hops >= MAX_NUM_HOPS)
+            {
+              NS_LOG_DEBUG ("Too many hops " << (int)m_currentCandidate.hops);
+              break;
+            }
 
           NS_LOG_DEBUG ("Possible parent with link quaility = " << std::dec << m_currentCandidate.linkQuality
                                                                 << " and hops = "
@@ -500,10 +503,11 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
               bestParentCandidate = m_currentCandidate;
             }
 
-          if(!m_endDiscoveryId.IsExpired()){
-            m_endDiscoveryId.Cancel();
-            DiscoveryTimeout();
-          }
+          if (!m_endDiscoveryId.IsExpired ())
+            {
+              m_endDiscoveryId.Cancel ();
+              DiscoveryTimeout ();
+            }
           break;
         }
 
@@ -519,9 +523,9 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
           ChildStatus status;
           status.replyReceived = false;
           status.missingDutyCycles = false;
-          childList.insert (std::pair<CottoncandyAddress, ChildStatus>(src, status));
+          childList.insert (std::pair<CottoncandyAddress, ChildStatus> (src, status));
           m_numChildren++;
-          NS_LOG_DEBUG ("JOIN_CFM message received. Now have " << childList.size() << " children");
+          NS_LOG_DEBUG ("JOIN_CFM message received. Now have " << childList.size () << " children");
           break;
         }
 
@@ -570,20 +574,20 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
           Time delay = Seconds (m_uniformRV->GetValue (MIN_BACKOFF, m_maxBackoff + MIN_BACKOFF));
           Time airtime = Seconds (0);
 
-          Time timeSpentListenToParent = Simulator::Now() - m_previousTimeStamp;
-          double energyUsedInListenToParent = timeSpentListenToParent.GetSeconds() * RECEIVING_CURRENT;
-          NS_LOG_DEBUG("Energy spent in listen to parent: " << energyUsedInListenToParent);
+          Time timeSpentListenToParent = Simulator::Now () - m_previousTimeStamp;
+          double energyUsedInListenToParent = timeSpentListenToParent.GetSeconds () * RECEIVING_CURRENT;
+          NS_LOG_INFO ("Energy spent in listen to parent: " << energyUsedInListenToParent);
           m_totalEnergyComsumed += energyUsedInListenToParent;
 
-          double energyUsedInBackoff = delay.GetSeconds() * BACKOFF_CURRENT;
-          NS_LOG_DEBUG("Energy spent in backoff: " << energyUsedInBackoff);
+          double energyUsedInBackoff = delay.GetSeconds () * BACKOFF_CURRENT;
+          NS_LOG_INFO ("Energy spent in backoff: " << energyUsedInBackoff);
           m_totalEnergyComsumed += energyUsedInBackoff;
 
           if (m_PendingData.size () > 0)
             {
               if (m_PendingData.size () == 1)
                 {
-                  NS_LOG_DEBUG ("Sending local reply to parent 0x" << std::dec << m_parent.parentAddr.Get () << " with delay = " << delay.GetSeconds());
+                  NS_LOG_DEBUG ("Sending local reply to parent 0x" << std::dec << m_parent.parentAddr.Get () << " with delay = " << delay.GetSeconds ());
                   Ptr<Packet> reply =  m_PendingData.front ()->Copy ();
 
                   //Modify the destination field in the header
@@ -690,10 +694,12 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
 
           if (m_state == TALK_TO_CHILDREN)
             {
-              m_previousTimeStamp = Simulator::Now() + delay + airtime;
+              m_previousTimeStamp = Simulator::Now () + delay + airtime;
               Simulator::Schedule (delay + airtime, &CottoncandyMac::TalkToChildren, this);
-            }else{
-              m_previousTimeStamp = Simulator::Now();
+            }
+          else
+            {
+              m_previousTimeStamp = Simulator::Now ();
             }
 
           break;
@@ -708,24 +714,27 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
           CottoncandyNodeReplyHeader replyHdr;
           packetCopy->RemoveHeader (replyHdr);
 
-          auto childIter = childList.find(src);
-          if(childIter != childList.end()){
-            childIter->second.replyReceived = true;
-            NS_LOG_DEBUG("Child " << src.Get() << " has replied in this round");
-          }
-          else if (m_repliesFromChildren){
-            //The first round of replies are local data from children
-            //If the children is not confirmed, we add it to the children list
-            NS_LOG_DEBUG("A previously unconfirmed child " << src.Get());
-            ChildStatus status;
-            status.replyReceived = true;
-            status.missingDutyCycles = 0;
-            childList.insert (std::pair<CottoncandyAddress, ChildStatus>(src, status));
-            
-            if(childList.size() > m_numChildren){
-              m_numChildren ++;
+          auto childIter = childList.find (src);
+          if (childIter != childList.end ())
+            {
+              childIter->second.replyReceived = true;
+              NS_LOG_DEBUG ("Child " << src.Get () << " has replied in this round");
             }
-          }
+          else if (m_repliesFromChildren)
+            {
+              //The first round of replies are local data from children
+              //If the children is not confirmed, we add it to the children list
+              NS_LOG_DEBUG ("A previously unconfirmed child " << src.Get ());
+              ChildStatus status;
+              status.replyReceived = true;
+              status.missingDutyCycles = 0;
+              childList.insert (std::pair<CottoncandyAddress, ChildStatus> (src, status));
+
+              if (childList.size () > m_numChildren)
+                {
+                  m_numChildren++;
+                }
+            }
 
           if (m_address.isGateway ())
             {
@@ -757,7 +766,7 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
             {
               NS_LOG_DEBUG ("Reply received from node " << std::dec << src.Get ());
               //A node simply places the received packet in the buffer
-              packetCopy->AddHeader(replyHdr);
+              packetCopy->AddHeader (replyHdr);
               packetCopy->AddHeader (mHdr);
               m_PendingData.push_back (packetCopy);
             }
@@ -800,45 +809,93 @@ CottoncandyMac::TalkToChildren ()
 
   uint8_t maxBackoff = 0;
 
-  switch (m_numChildren)
-  {
-  case 0:
-  {
-    maxBackoff = 1;
-    break;
-  }
-  case 1:
-  {
-    maxBackoff = 3;
-    break;
-  }
-  case 2:
-  {
-    maxBackoff = 5;
-    break;
-  }
-  case 3:{
-    maxBackoff = 9;
-    break;
-  }
-  default:
-    maxBackoff = 9;
-    break;
-  }
+  if (m_backoffMode == CottonCandyBackoffMode::ADAPTIVE)
+    {
+      switch (m_numChildren)
+        {
+          case 0:
+            {
+              maxBackoff = 1;
+              break;
+            }
+          case 1:
+            {
+              maxBackoff = 3;
+              break;
+            }
+          case 2:
+            {
+              maxBackoff = 5;
+              break;
+            }
+          case 3:
+            {
+              maxBackoff = 9;
+              break;
+            }
+          default:
+            {
+              maxBackoff = 9;
+              break;
+            }
+        }
+    }
+  else if (m_backoffMode == CottonCandyBackoffMode::STATIC_3_SECONDS)
+    {
+      switch (m_numChildren)
+        {
+          case 0:
+            {
+              maxBackoff = 1;
+              break;
+            }
+          case 1:
+            {
+              maxBackoff = 3;
+              break;
+            }
+          default:
+            {
+              maxBackoff = 3;
+              break;
+            }
+        }
+    }
+  else
+    {
+      switch (m_numChildren)
+        {
+          case 0:
+            {
+              maxBackoff = 1;
+              break;
+            }
+          case 1:
+            {
+              maxBackoff = 3;
+              break;
+            }
+          default:
+            {
+              maxBackoff = 12;
+              break;
+            }
+        }
+    }
 
   /*
-  if(m_numChildren == 0){
-    maxBackoff = 1;
+    if(m_numChildren == 0){
+      maxBackoff = 1;
 
-  }else if(m_numChildren == 1){
-    maxBackoff = 3;
-  }
-  else{
-    double backoffRange = 2 * MAX_AIR_TIME / (1 - pow((1 - REQUIRED_COLLISION_RATE), 1/((double)m_numChildren - 1)));
-    
-    //NS_LOG_DEBUG("Backoff range = " << backoffRange);
-    maxBackoff = (int)ceil(backoffRange);
-  }*/
+    }else if(m_numChildren == 1){
+      maxBackoff = 3;
+    }
+    else{
+      double backoffRange = 2 * MAX_AIR_TIME / (1 - pow((1 - REQUIRED_COLLISION_RATE), 1/((double)m_numChildren - 1)));
+
+      //NS_LOG_DEBUG("Backoff range = " << backoffRange);
+      maxBackoff = (int)ceil(backoffRange);
+    }*/
 
   //NS_ASSERT(maxBackoff < 20);
 
@@ -858,13 +915,13 @@ CottoncandyMac::TalkToChildren ()
   Time airtime = m_phy->GetOnAirTime (packet, m_params);
 
   Time listenDuration = Seconds (maxBackoff);
-  listenDuration = listenDuration + Seconds(0.5); // +0.5 seconds for airtime (incoming packets from children)
+  listenDuration = listenDuration + Seconds (0.5);     // +0.5 seconds for airtime (incoming packets from children)
 
-  double energyInReceiving = listenDuration.GetSeconds() * RECEIVING_CURRENT;
-  NS_LOG_DEBUG("Energy in receiving replies: " << energyInReceiving);
+  double energyInReceiving = listenDuration.GetSeconds () * RECEIVING_CURRENT;
+  NS_LOG_DEBUG ("Energy in receiving replies: " << energyInReceiving);
   m_totalEnergyComsumed += energyInReceiving;
 
-  m_previousTimeStamp = Simulator::Now() + airtime + listenDuration;
+  m_previousTimeStamp = Simulator::Now () + airtime + listenDuration;
 
   //Set up the timeout
   Simulator::Schedule (airtime + listenDuration, &CottoncandyMac::ReceiveTimeout,
@@ -877,21 +934,24 @@ CottoncandyMac::ReceiveTimeout ()
 {
   NS_LOG_DEBUG ("Receive timeout");
 
-  if(m_endDCPId.IsExpired ()){
-    NS_LOG_DEBUG("Max DCP duration has reached already");
-    return;
-  }
+  if (m_endDCPId.IsExpired ())
+    {
+      NS_LOG_DEBUG ("Max DCP duration has reached already");
+      return;
+    }
 
-  if(m_repliesFromChildren){
-    m_repliesFromChildren = false;
-  }
+  if (m_repliesFromChildren)
+    {
+      m_repliesFromChildren = false;
+    }
 
   //If we have unconfirmed children, we first add the number up to give more backoff time
   //Ideally, in the next round, the longer backoff will allow those nodes to deliver their local
   //data to the parent, such that the parent can formally add them to the list of children
-  if(m_numChildren < m_PendingData.size ()){
-    m_numChildren = m_PendingData.size ();
-  }
+  if (m_numChildren < m_PendingData.size ())
+    {
+      m_numChildren = m_PendingData.size ();
+    }
 
   if (m_PendingData.size () > 0)
     {
@@ -924,11 +984,11 @@ CottoncandyMac::ReceiveTimeout ()
         }
       else
         {
-          double energyInHibernation = SHORT_HIBERNATION_DURATION.GetSeconds() * HIBERNATION_CURRENT;
-          NS_LOG_DEBUG("Energy in short hibernation: " << energyInHibernation);
+          double energyInHibernation = SHORT_HIBERNATION_DURATION.GetSeconds () * HIBERNATION_CURRENT;
+          NS_LOG_INFO ("Energy in short hibernation: " << energyInHibernation);
           m_totalEnergyComsumed += energyInHibernation;
-  
-          m_previousTimeStamp = Simulator::Now() + SHORT_HIBERNATION_DURATION;
+
+          m_previousTimeStamp = Simulator::Now () + SHORT_HIBERNATION_DURATION;
           //Send out the request again after 10 seconds
           Simulator::Schedule (SHORT_HIBERNATION_DURATION, &CottoncandyMac::TalkToChildren, this);
         }
@@ -940,42 +1000,49 @@ CottoncandyMac::EndSeekJoinPhase ()
 {
   if (!m_address.isGateway () && m_channel == INVALID_CHANNEL)
     {
-      if(m_channelAlg == CottonCandyChannelAlgorithm::RANDOM_CHANNEL){
-
-        m_channel = m_uniformRV->GetInteger(0, m_numChannels - 1);
-
-      }else{
-
-        auto leastUsedChannel = std::min_element(m_interfererChannels.begin(), m_interfererChannels.end());
-        int leastUsedTimes = *leastUsedChannel;
-
-        std::vector<uint8_t> availableChannels;
-
-        //Collect the channels that are equally least used 
-        for (int i = 0; i < m_numChannels; i++)
-          {
-            if (m_interfererChannels[i] == leastUsedTimes)
-              {
-                availableChannels.push_back(i);
-              }
-          }
-
-        if(availableChannels.size() > 0){
-          int index = m_uniformRV->GetInteger(0, availableChannels.size() - 1);
-          m_channel = availableChannels[index];
-        }else{
-          m_channel = 0;
+      if (m_channelAlg == CottonCandyChannelAlgorithm::SINGLE_CHANNEL)
+        {
+          m_channel = PUBLIC_CHANNEL;
         }
-      }
+      else if (m_channelAlg == CottonCandyChannelAlgorithm::RANDOM_CHANNEL)
+        {
+          m_channel = m_uniformRV->GetInteger (0, m_numChannels - 1);
+        }
+      else
+        {
+          auto leastUsedChannel = std::min_element (m_interfererChannels.begin (), m_interfererChannels.end ());
+          int leastUsedTimes = *leastUsedChannel;
+
+          std::vector<uint8_t> availableChannels;
+
+          //Collect the channels that are equally least used
+          for (int i = 0; i < m_numChannels; i++)
+            {
+              if (m_interfererChannels[i] == leastUsedTimes)
+                {
+                  availableChannels.push_back (i);
+                }
+            }
+
+          if (availableChannels.size () > 0)
+            {
+              int index = m_uniformRV->GetInteger (0, availableChannels.size () - 1);
+              m_channel = availableChannels[index];
+            }
+          else
+            {
+              m_channel = 0;
+            }
+        }
     }
 
   NS_LOG_DEBUG ("My channel is " << std::dec << (unsigned int)m_channel);
-  
+
   //Record the final channel choice
-  m_channelSelected(m_address.Get(), m_channel);
-  
+  m_channelSelected (m_address.Get (), m_channel);
+
   //Record the number of interferers detected this round
-  m_numInterferersDetected(m_address.Get(), m_interfererChannels[m_channel]);
+  m_numInterferersDetected (m_address.Get (), m_interfererChannels[m_channel]);
 
   //Reset the interferer information
   std::fill (m_interfererChannels.begin (), m_interfererChannels.end (), 0);
@@ -999,54 +1066,100 @@ CottoncandyMac::EndSeekJoinPhase ()
   //NS time does rounding automatically when convert from double to integer, we use the floor so that a node will not wake up late
   seekHdr.SetNextAcceptJoinTime ((uint32_t) std::floor (timeTillNextAcceptJoin.GetSeconds ()));
 
-  Time timeSpentInSeekJoin = Simulator::Now() - m_previousTimeStamp;
-  double energyUsedInSeekJoin = timeSpentInSeekJoin.GetSeconds() * RECEIVING_CURRENT;
+  Time timeSpentInSeekJoin = Simulator::Now () - m_previousTimeStamp;
+  double energyUsedInSeekJoin = timeSpentInSeekJoin.GetSeconds () * RECEIVING_CURRENT;
   m_totalEnergyComsumed += energyUsedInSeekJoin;
-  NS_LOG_DEBUG("Energy used receiving in SeekJoin: " << energyUsedInSeekJoin);
+  NS_LOG_INFO ("Energy used receiving in SeekJoin: " << energyUsedInSeekJoin);
 
   //Reset the time stamp
-  m_previousTimeStamp = Simulator::Now();
+  m_previousTimeStamp = Simulator::Now ();
 
   uint8_t maxBackoff = 0;
 
-    switch (m_numChildren)
-  {
-  case 0:
-  {
-    maxBackoff = 1;
-    break;
-  }
-  case 1:
-  {
-    maxBackoff = 3;
-    break;
-  }
-  case 2:
-  {
-    maxBackoff = 5;
-    break;
-  }
-  case 3:{
-    maxBackoff = 9;
-    break;
-  }
-  default:
-    maxBackoff = 9;
-    break;
-  }
+  if (m_backoffMode == CottonCandyBackoffMode::ADAPTIVE)
+    {
+      switch (m_numChildren)
+        {
+          case 0:
+            {
+              maxBackoff = 1;
+              break;
+            }
+          case 1:
+            {
+              maxBackoff = 3;
+              break;
+            }
+          case 2:
+            {
+              maxBackoff = 5;
+              break;
+            }
+          case 3:
+            {
+              maxBackoff = 9;
+              break;
+            }
+          default:
+            maxBackoff = 9;
+            break;
+        }
+    }
+  else if (m_backoffMode == CottonCandyBackoffMode::STATIC_3_SECONDS)
+    {
+      switch (m_numChildren)
+        {
+          case 0:
+            {
+              maxBackoff = 1;
+              break;
+            }
+          case 1:
+            {
+              maxBackoff = 3;
+              break;
+            }
+          default:
+            {
+              maxBackoff = 3;
+              break;
+            }
+        }
+    }
+  else
+    {
+      switch (m_numChildren)
+        {
+          case 0:
+            {
+              maxBackoff = 1;
+              break;
+            }
+          case 1:
+            {
+              maxBackoff = 3;
+              break;
+            }
+          default:
+            {
+              maxBackoff = 12;
+              break;
+            }
+        }
+    }
   /*
-  if(m_numChildren == 0){
-    maxBackoff = 1;
+      if(m_numChildren == 0){
+        maxBackoff = 1;
 
-  }else if (m_numChildren == 1){
-    maxBackoff = 3;
-  }
-  else{
-    double backoffRange = 2 * MAX_AIR_TIME / (1 - pow((1 - REQUIRED_COLLISION_RATE), 1/((double)m_numChildren - 1)));
-    
-    //NS_LOG_DEBUG("Backoff range = " << backoffRange);
-    maxBackoff = (int)ceil(backoffRange);
-  }*/
+      }else if (m_numChildren == 1){
+        maxBackoff = 3;
+      }
+      else{
+        double backoffRange = 2 * MAX_AIR_TIME / (1 - pow((1 - REQUIRED_COLLISION_RATE), 1/((double)m_numChildren - 1)));
+
+        //NS_LOG_DEBUG("Backoff range = " << backoffRange);
+        maxBackoff = (int)ceil(backoffRange);
+      }*/
 
   //NS_ASSERT(maxBackoff < 20);
   //uint8_t maxBackoff = (m_numChildren == 0) ? 1 : m_numChildren * BACKOFF_MULTIPLIER;
@@ -1071,9 +1184,10 @@ CottoncandyMac::EndSeekJoinPhase ()
       m_state = HIBERNATE;
     }
 
-  if(m_simMode != FULL_SIMULATION){
-     m_state = HIBERNATE;
-  }
+  if (m_simMode != CottonCandySimulationMode::FULL_SIMULATION && m_simMode < CottonCandySimulationMode::TEST_BASELINE)
+    {
+      m_state = HIBERNATE;
+    }
 
 }
 
@@ -1090,12 +1204,12 @@ CottoncandyMac::Send (Ptr<Packet> packet, double freq, double txPower)
 
   Time nextTxDelay = m_channelHelper.GetWaitingTime (channel);
 
-  //Add to the total energy consumption 
+  //Add to the total energy consumption
   Time airtime = m_phy->GetOnAirTime (packet, m_params);
-  double energyUsed = airtime.GetSeconds() * TRANSMISSION_CURRENT[(int)txPower - 8];
-  
-  NS_LOG_DEBUG("Energy used for transmission: txPwr =  " << txPower <<  " -> " << energyUsed << " mA * s");
-  
+  double energyUsed = airtime.GetSeconds () * TRANSMISSION_CURRENT[(int)txPower - 8];
+
+  NS_LOG_INFO ("Energy used for transmission: txPwr =  " << txPower <<  " -> " << energyUsed << " mA * s");
+
   m_totalEnergyComsumed += energyUsed;
 
   if (nextTxDelay == Seconds (0))
@@ -1125,72 +1239,115 @@ CottoncandyMac::SetChannel (uint8_t channel)
 void
 CottoncandyMac::Run ()
 {
-  NS_LOG_DEBUG("Simulation Mode = " << m_simMode);
-  switch(m_simMode){
-    case CottonCandySimulationMode::FULL_SIMULATION:
+  NS_LOG_DEBUG ("Simulation Mode = " << m_simMode);
+  switch (m_simMode)
     {
-      m_channelAlg = CottonCandyChannelAlgorithm::CHANNEL_ANNOUNCEMENT;
-      m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
-      break;
-    }
-    case CottonCandySimulationMode::TEST_STATIC_TX_DISCOVERY_ONLY:
-    {
-      // Single Channel
-      if(m_numChannels != 1){
-        m_numChannels = 1;
-      }
-      m_discoveryMode =  CottonCandyDiscoveryMode::STATIC_TX_PWR;
-      break;
-    }
-    case CottonCandySimulationMode::TEST_PROXIMITY_BASED_DISCOVERY_ONLY:
-    {
-      if(m_numChannels != 1){
-        m_numChannels = 1;
-      }
-      m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
-      break;
-    }
-    case CottonCandySimulationMode::TEST_MULTI_CHANNEL_WITH_PROXIMITY_BASED_DISCOVERY:
-    {
-      m_channelAlg = CottonCandyChannelAlgorithm::CHANNEL_ANNOUNCEMENT;
-      m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
-      break;
-    }case CottonCandySimulationMode::TEST_RANDOM_CHANNEL_WITH_PROXIMITY_BASED_DISCOVERY:
-    {
-       m_channelAlg = CottonCandyChannelAlgorithm::RANDOM_CHANNEL;
-       m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
-       break;
-    }
-  }
+      case CottonCandySimulationMode::FULL_SIMULATION:
+        {
+          m_channelAlg = CottonCandyChannelAlgorithm::CHANNEL_ANNOUNCEMENT;
+          m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
+          break;
+        }
+      case CottonCandySimulationMode::TEST_STATIC_TX_DISCOVERY_ONLY:
+        {
+          // Single Channel
+          m_channelAlg = CottonCandyChannelAlgorithm::SINGLE_CHANNEL;
+          m_discoveryMode =  CottonCandyDiscoveryMode::STATIC_TX_PWR;
+          break;
+        }
+      case CottonCandySimulationMode::TEST_PROXIMITY_BASED_DISCOVERY_ONLY:
+        {
+          m_channelAlg = CottonCandyChannelAlgorithm::SINGLE_CHANNEL;
+          m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
+          break;
+        }
+      case CottonCandySimulationMode::TEST_MULTI_CHANNEL_WITH_PROXIMITY_BASED_DISCOVERY:
+        {
+          m_channelAlg = CottonCandyChannelAlgorithm::CHANNEL_ANNOUNCEMENT;
+          m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
+          break;
+        } case CottonCandySimulationMode::TEST_RANDOM_CHANNEL_WITH_PROXIMITY_BASED_DISCOVERY:
+        {
+          m_channelAlg = CottonCandyChannelAlgorithm::RANDOM_CHANNEL;
+          m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
+          break;
+        }
+      case CottonCandySimulationMode::TEST_BASELINE:
+        {
+          m_channelAlg = CottonCandyChannelAlgorithm::SINGLE_CHANNEL;
+          m_discoveryMode =  CottonCandyDiscoveryMode::STATIC_TX_PWR;
+          m_backoffMode = CottonCandyBackoffMode::STATIC_3_SECONDS;
+          break;
+        }
+      case CottonCandySimulationMode::TEST_SETUP1:
+        {
+          m_channelAlg = CottonCandyChannelAlgorithm::SINGLE_CHANNEL;
+          m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
+          m_backoffMode = CottonCandyBackoffMode::STATIC_3_SECONDS;
+          break;
+        }
+      case CottonCandySimulationMode::TEST_SETUP2:
+        {
+          m_numChannels = 20;
+          m_channelAlg = CottonCandyChannelAlgorithm::CHANNEL_ANNOUNCEMENT;
+          m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
+          m_backoffMode = CottonCandyBackoffMode::STATIC_3_SECONDS;
+          break;
+        }
+      case CottonCandySimulationMode::TEST_SETUP3:
+        {
+          m_numChannels = 20;
+          m_channelAlg = CottonCandyChannelAlgorithm::CHANNEL_ANNOUNCEMENT;
+          m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
+          m_backoffMode = CottonCandyBackoffMode::STATIC_12_SECONDS;
+          break;
+        }
+      case CottonCandySimulationMode::TEST_SETUP4:
+        {
+          m_numChannels = 20;
+          m_channelAlg = CottonCandyChannelAlgorithm::CHANNEL_ANNOUNCEMENT;
+          m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
+          m_backoffMode = CottonCandyBackoffMode::ADAPTIVE;
+          break;
+        }
 
-  if(m_discoveryMode == CottonCandyDiscoveryMode::STATIC_TX_PWR){
-    m_txPower = MAX_TX_POWER;
-  }else{
-    m_txPower = MIN_TX_POWER;
-  }
+    }
+
+  if (m_discoveryMode == CottonCandyDiscoveryMode::STATIC_TX_PWR)
+    {
+      m_txPower = MAX_TX_POWER;
+    }
+  else
+    {
+      m_txPower = MIN_TX_POWER;
+    }
 
   m_phy->GetObject<EndDeviceLoraPhy> ()->SwitchToStandby ();
 
   m_numChildren = 0;
 
-  m_interfererChannels = std::vector<int>(m_numChannels);
+  m_interfererChannels = std::vector<int> (m_numChannels);
   //Initialize the list of channel usage
   std::fill (m_interfererChannels.begin (), m_interfererChannels.end (), 0);
 
-  if (m_address.isGateway())
+  if (m_address.isGateway ())
     {
       NS_LOG_DEBUG ("This is a gateway device");
       m_connectionEstablished (m_address.Get (), 0, m_phy->GetMobility ()->GetPosition (), MAX_TX_POWER);
 
       m_parent.hops = 0;
-      m_parent.ulChannel = m_channel; //The gateway sets the ulChannel to the m_channel
+      m_parent.ulChannel = m_channel;     //The gateway sets the ulChannel to the m_channel
 
       EnterAcceptJoinPhase ();
 
       //Selects a random private channel to use
-      m_channel = m_uniformRV->GetInteger (0, m_numChannels-1);
+      if(m_channelAlg == CottonCandyChannelAlgorithm::SINGLE_CHANNEL){
+        m_channel = PUBLIC_CHANNEL;
+      }else{
+        m_channel = m_uniformRV->GetInteger (0, m_numChannels - 1);
+      }
 
-      m_channelSelected(m_address.Get(), m_channel);
+      m_channelSelected (m_address.Get (), m_channel);
     }
   else
     {
@@ -1237,22 +1394,25 @@ CottoncandyMac::EnterSeekJoinPhase ()
   m_state = SEEK_JOIN_WINDOW;
 
   //First add the energy consumption for accept join phase
-  double acceptJoinEnergy = ACCEPT_JOIN_DURATION.GetSeconds() * RECEIVING_CURRENT;
-  NS_LOG_DEBUG("Energy spent for receiving in the Accept_Join phase" << acceptJoinEnergy );
+  double acceptJoinEnergy = ACCEPT_JOIN_DURATION.GetSeconds () * RECEIVING_CURRENT;
+  NS_LOG_INFO ("Energy spent for receiving in the Accept_Join phase" << acceptJoinEnergy );
   m_totalEnergyComsumed += acceptJoinEnergy;
 
   //Remember the timestamp now
-  m_previousTimeStamp = Simulator::Now();
+  m_previousTimeStamp = Simulator::Now ();
 
   //Listen on the public channel
   SetChannel (PUBLIC_CHANNEL);
 
-  if(m_simMode != CottonCandySimulationMode::FULL_SIMULATION){
-    //We do not do data collection if we are only simulating for multi-channel and proximity-based parent discovery
-    //Simulator::Schedule (SEEK_JOIN_DURATION, &CottoncandyMac::EndDataCollectionPhase, this);
-  }else{
-    Simulator::Schedule (SEEK_JOIN_DURATION, &CottoncandyMac::EnterDataCollectionPhase, this);
-  }
+  if (m_simMode != CottonCandySimulationMode::FULL_SIMULATION && m_simMode <  CottonCandySimulationMode::TEST_BASELINE)
+    {
+      //We do not do data collection if we are only simulating for multi-channel and proximity-based parent discovery
+      //Simulator::Schedule (SEEK_JOIN_DURATION, &CottoncandyMac::EndDataCollectionPhase, this);
+    }
+  else
+    {
+      Simulator::Schedule (SEEK_JOIN_DURATION, &CottoncandyMac::EnterDataCollectionPhase, this);
+    }
 
 
   // Clear the expired entries in the JOIN phase
@@ -1270,22 +1430,25 @@ CottoncandyMac::EnterDataCollectionPhase ()
 {
   NS_LOG_DEBUG ("Enter Data Collection phase");
 
-  if(!m_nextDutyCycleKnown){
-    //We did not receive a SEEK_JOIN in the seek join window, therefore endseekjoinphase() is never called
-    Time timeSpentInSeekJoin = Simulator::Now() - m_previousTimeStamp;
-    double energyUsedInSeekJoin = timeSpentInSeekJoin.GetSeconds() * RECEIVING_CURRENT;
-    m_totalEnergyComsumed += energyUsedInSeekJoin;
-    NS_LOG_DEBUG("Energy used receiving in SeekJoin: " << energyUsedInSeekJoin);
-  }else{
-    Time hibernationInSeekJoin = Simulator::Now() - m_previousTimeStamp;
-    double energyUsedInSeekJoinHibernate = hibernationInSeekJoin.GetSeconds() * HIBERNATION_CURRENT;
-    m_totalEnergyComsumed += energyUsedInSeekJoinHibernate;
-    NS_LOG_DEBUG("Energy used receiving in SeekJoin Hibernate: " << energyUsedInSeekJoinHibernate);
-  }
+  if (!m_nextDutyCycleKnown)
+    {
+      //We did not receive a SEEK_JOIN in the seek join window, therefore endseekjoinphase() is never called
+      Time timeSpentInSeekJoin = Simulator::Now () - m_previousTimeStamp;
+      double energyUsedInSeekJoin = timeSpentInSeekJoin.GetSeconds () * RECEIVING_CURRENT;
+      m_totalEnergyComsumed += energyUsedInSeekJoin;
+      NS_LOG_INFO ("Energy spent receiving in SeekJoin: " << energyUsedInSeekJoin);
+    }
+  else
+    {
+      Time hibernationInSeekJoin = Simulator::Now () - m_previousTimeStamp;
+      double energyUsedInSeekJoinHibernate = hibernationInSeekJoin.GetSeconds () * HIBERNATION_CURRENT;
+      m_totalEnergyComsumed += energyUsedInSeekJoinHibernate;
+      NS_LOG_INFO ("Energy used receiving in SeekJoin Hibernate: " << energyUsedInSeekJoinHibernate);
+    }
   //Reset the time stamp
-  m_previousTimeStamp = Simulator::Now();
+  m_previousTimeStamp = Simulator::Now ();
 
-  m_DCPStartTime = Simulator::Now();
+  m_DCPStartTime = Simulator::Now ();
 
   m_phy->GetObject<EndDeviceLoraPhy>()->SwitchToStandby ();
 
@@ -1298,7 +1461,7 @@ CottoncandyMac::EnterDataCollectionPhase ()
 
   if (m_address.isGateway ())
     {
-      m_replyDelivered (m_address.Get ()); // The gateway assumes that its packet is always delivered (We use this for counting duty cycles)
+      m_replyDelivered (m_address.Get ());     // The gateway assumes that its packet is always delivered (We use this for counting duty cycles)
       //The gateway sends out the first gateway request message
       m_state = TALK_TO_CHILDREN;
 
@@ -1363,10 +1526,11 @@ CottoncandyMac::EnterAcceptJoinPhase ()
       m_nextDutyCycleKnown = false;
 
       //For these 2 types of simulations, we do not need to run DCP and only need to operate a SEEK_JOIN phase every duty cycle
-      if(m_simMode != FULL_SIMULATION){
-        Simulator::Schedule ( Seconds (3600), &CottoncandyMac::EnterAcceptJoinPhase, this);
-        m_nextDutyCycleKnown = true;
-      }
+      if (m_simMode != CottonCandySimulationMode::FULL_SIMULATION && m_simMode < CottonCandySimulationMode::TEST_BASELINE)
+        {
+          Simulator::Schedule ( Seconds (3600), &CottoncandyMac::EnterAcceptJoinPhase, this);
+          m_nextDutyCycleKnown = true;
+        }
     }
 }
 
@@ -1375,9 +1539,10 @@ CottoncandyMac::EndDataCollectionPhase ()
 {
   NS_LOG_DEBUG ("End data collection phase");
 
-  if(m_PendingData.size() > 0 && m_nextDutyCycleKnown){
-    //TODO: The parent or ancestor must have terminated early
-  }
+  if (m_PendingData.size () > 0 && m_nextDutyCycleKnown)
+    {
+      //TODO: The parent or ancestor must have terminated early
+    }
 
   //Time hibernationTime = m_nextAcceptJoin - Simulator::Now();
   //double energyInHibernation = hibernationTime.GetSeconds() * HIBERNATION_CURRENT;
@@ -1386,43 +1551,53 @@ CottoncandyMac::EndDataCollectionPhase ()
   //Reset
   m_PendingData.clear ();
 
-  for(auto iter = childList.begin(); iter != childList.end();){
-    if(!iter->second.replyReceived){
-      iter->second.missingDutyCycles ++;
-    }else{
-      iter->second.missingDutyCycles = 0;
-    }
+  for (auto iter = childList.begin (); iter != childList.end ();)
+    {
+      if (!iter->second.replyReceived)
+        {
+          iter->second.missingDutyCycles++;
+        }
+      else
+        {
+          iter->second.missingDutyCycles = 0;
+        }
 
-    //Remove a child if it does not reply data back for 3 consecutive rounds
-    if(iter->second.missingDutyCycles >= 3){
-      childList.erase(iter++);
-      m_numChildren --;
-    }else{
-      ++iter;
+      //Remove a child if it does not reply data back for 3 consecutive rounds
+      if (iter->second.missingDutyCycles >= 3)
+        {
+          childList.erase (iter++);
+          m_numChildren--;
+        }
+      else
+        {
+          ++iter;
+        }
     }
-  }
 
   if (!m_address.isGateway () && !m_nextDutyCycleKnown)
     {
-      NS_LOG_DEBUG("Error: Need to self-heal from parent " << std::dec << m_parent.parentAddr.Get());
+      NS_LOG_DEBUG ("Error: Need to self-heal from parent " << std::dec << m_parent.parentAddr.Get ());
       //We lost synchronization with the rest of the network
       //NS_ASSERT(false);
 
-      if(m_discoveryMode == CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR){
-        //Reset the Tx power
-        m_txPower = MIN_TX_POWER;
-      }
+      if (m_discoveryMode == CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR)
+        {
+          //Reset the Tx power
+          m_txPower = MIN_TX_POWER;
+        }
       //Reset the channel
       //m_channel = INVALID_CHANNEL;
 
       EnterObservePhase ();
-    }else{
-      Time elpasedTimeInDCP = Simulator::Now() - m_DCPStartTime; 
-      m_DCPDuration(m_address.Get(),elpasedTimeInDCP);
+    }
+  else
+    {
+      Time elpasedTimeInDCP = Simulator::Now () - m_DCPStartTime;
+      m_DCPDuration (m_address.Get (),elpasedTimeInDCP);
 
       //Report the energy used in this duty cycle
-      m_energyUsedInDutyCycle(m_address.Get(), m_totalEnergyComsumed);
-      NS_LOG_DEBUG("Total energy used in this duty cycle " << m_totalEnergyComsumed << " mA*s");
+      m_energyUsedInDutyCycle (m_address.Get (), m_totalEnergyComsumed);
+      NS_LOG_DEBUG ("Total energy used in this duty cycle " << m_totalEnergyComsumed << " mA*s");
     }
 
 }
@@ -1440,7 +1615,7 @@ CottoncandyMac::EnterObservePhase ()
   bestParentCandidate = ParentNode ();
   bestParentCandidate.hops = 255;
 
-  childList.clear();
+  childList.clear ();
 
   m_channel = INVALID_CHANNEL;
 }
@@ -1473,7 +1648,7 @@ void
 CottoncandyMac::EndJoinPhase ()
 {
   NS_LOG_DEBUG ("End Join Phase");
-  NS_LOG_DEBUG("STATE " << (int)m_state);
+  NS_LOG_DEBUG ("STATE " << (int)m_state);
   //At the end of join phase, if we have already joined -> EnterSeekJoin(), otherwise, we do nothing (already done at discovery timeout)
   if (m_state != CONNECTED && m_state != SEEK_JOIN_WINDOW)
     {
@@ -1523,7 +1698,7 @@ CottoncandyMac::Join ()
 
       //Time out 1 second after the packet is sent
       m_endDiscoveryId = Simulator::Schedule (Seconds (delay) + airtime + JOIN_ACK_TIMEOUT,
-                           &CottoncandyMac::DiscoveryTimeout, this);
+                                              &CottoncandyMac::DiscoveryTimeout, this);
 
       NS_LOG_DEBUG ("Sending Join request to candidate " << std::dec << candidateAddr.Get ());
     }
@@ -1555,7 +1730,7 @@ CottoncandyMac::DiscoveryTimeout ()
           m_connectionEstablished (m_address.Get (), m_parent.parentAddr.Get (),
                                    m_phy->GetMobility ()->GetPosition (), m_txPower);
 
-          NS_LOG_DEBUG("Final tx power set to " << m_txPower);
+          NS_LOG_DEBUG ("Final tx power set to " << m_txPower);
 
           Send (cfmPacket, GetChannelFreq (m_parent.ulChannel), m_txPower);
 
@@ -1574,7 +1749,7 @@ CottoncandyMac::DiscoveryTimeout ()
           if (m_discoveryMode == ADAPTIVE_TX_PWR && m_txPower < MAX_TX_POWER)
             {
               //Increment the TX power
-              m_txPower+=TX_POWER_INCREMENT;
+              m_txPower += TX_POWER_INCREMENT;
             }
         }
     }
@@ -1585,5 +1760,5 @@ CottoncandyMac::DiscoveryTimeout ()
     }
 }
 
-} // namespace lorawan
+}   // namespace lorawan
 } // namespace ns3
