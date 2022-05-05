@@ -401,6 +401,8 @@ CottoncandyMac::Receive (Ptr<Packet const> packet)
               break;
             }
 
+          pendingChildren.insert(std::pair<CottoncandyAddress, Time>(src, Simulator::Now()));
+
           // Construct a JOIN_ACK packet and send back
           Ptr<Packet> packetToSend = Create<Packet> ();
 
@@ -1281,9 +1283,10 @@ CottoncandyMac::Run ()
         }
       case CottonCandySimulationMode::TEST_SETUP1:
         {
-          m_channelAlg = CottonCandyChannelAlgorithm::SINGLE_CHANNEL;
-          m_discoveryMode =  CottonCandyDiscoveryMode::ADAPTIVE_TX_PWR;
-          m_backoffMode = CottonCandyBackoffMode::STATIC_3_SECONDS;
+          m_numChannels = 20;
+          m_channelAlg = CottonCandyChannelAlgorithm::CHANNEL_ANNOUNCEMENT;
+          m_discoveryMode =  CottonCandyDiscoveryMode::STATIC_TX_PWR;
+          m_backoffMode = CottonCandyBackoffMode::ADAPTIVE;
           break;
         }
       case CottonCandySimulationMode::TEST_SETUP2:
